@@ -1,0 +1,15 @@
+## CREAZIONE AMBIENTE VIRTUALE ##
+Creare una nuova cartella (percorso non troppo lungo)
+Aprire la cartella in Visual Studio
+Aprire terminale powershell dentro Visual Studio
+Lanciare il comando "python -m venv venv"
+Da Powershell avviato come amministratore, eseguire "Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned" (solo una volta)
+Sul terminale di prima, eseguire "venv/Scripts/Activate.ps1"
+
+## INSTALLAZIONE STREAMLIT ##
+Da terminale su Visual Studio (dopo aver attivato venv) lanciare "pip install streamlit"
+Lanciare il comando "streamlit hello" per verificare che sia andato tutto a buon fine
+Nel codice python, importare streamlit con "import streamlit as st"
+
+## INSTALLAZIONE PYSPARK ##
+Da terminale su Visual Studio (dopo aver attivato venv) lanciare "pip install pyspark"
