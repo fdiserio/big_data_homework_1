@@ -1,14 +1,24 @@
 # -*- coding: utf-8 -*-
-"""#1 - Homework
+"""#1 - Homework"""
 
-"""# **INSTALLAZIONE PY-SPARK**"""
+## LIBRARIES IMPORT ##
+from libraries import *
 
-import os
-from pyspark.sql import SparkSession
-from pyspark.context import SparkContext
+## PAGE CONFIGURATION ##
+st.set_page_config(
+    page_title='Movies',
+    page_icon=':🎬:',
+    layout='wide',
+    initial_sidebar_state='expanded'  # Espandi la barra laterale inizialmente, se desiderato
+    )
+st.title('🎬📽️ CINE-DATA: Dataset Cinematografici 🎞️🎥')
 
-os.environ['PYSPARK_PYTHON'] = '/usr/bin/python3'
+## VISUALIZE DATASET ##
+left_column, right_column = st.columns(2)
+left_check = left_column.checkbox("IMDB Dataset")
+right_check = right_column.checkbox("GENRE Dataset")
 
+### **INSTALLAZIONE PY-SPARK** ###
 # Verify the Spark version running on the virtual cluster
 sc = SparkContext.getOrCreate()
 assert  "3." in sc.version, "Verify that the cluster Spark's version is 3.x"
@@ -20,10 +30,6 @@ print(spark)
 
 
 ### DATASET ###
-
-from pyspark.sql.functions import *
-from pyspark.sql.window import Window
-from pyspark.sql.types import *
 
 # PATH
 genres_path = './genres'
@@ -73,7 +79,7 @@ df_imdb_movies = spark.read \
                     .option("header", "true") \
                     .csv(imdb_path_2)
 
-df_imdb_movies.printSchema()
+#df_imdb_movies.printSchema()
 
 # Lista delle colonne da convertire e il relativo tipo di dato
 columns_to_convert = {
@@ -99,11 +105,14 @@ for column in columns_to_convert:
 df_imdb_movies = df_imdb_movies.distinct()
 
 # Verifica lo schema aggiornato
-df_imdb_movies.printSchema()
+#df_imdb_movies.printSchema()
 
 # Eliminiamo tutti i film con anno NULL (per le successive operazioni)
 df_imdb_movies = df_imdb_movies.filter(df_imdb_movies["year"].isNotNull())
 
+# Visualizza il dataset
+if left_check:
+    left_column.dataframe(df_imdb_movies)
 
 ### GENRE DATASET ###
 
@@ -127,7 +136,7 @@ for path in file_paths:
         df_genre_movies = df_genre_movies.union(df)
 
 # Verifica lo schema del DataFrame combinato
-df_genre_movies.printSchema()
+#df_genre_movies.printSchema()
 
 # Converti durata in minuti per leggerlo come int
 hours = regexp_extract(col("run_length"), r"(\d+)h", 1).cast("int")  # Estrae le ore
@@ -146,7 +155,11 @@ df_genre_movies = df_genre_movies.withColumn(column_to_convert, array_remove(col
 df_genre_movies = df_genre_movies.distinct()
 
 # Verifica lo schema aggiornato
-df_genre_movies.printSchema()
+#df_genre_movies.printSchema()
+
+# Visualizza il dataset
+if right_check:
+    right_column.dataframe(df_genre_movies)
 
 
 ### OPERATIONS ###
@@ -414,3 +427,119 @@ df_couple = df_couple.filter(col("actor")!=col("director"))
 df_couple = df_couple.orderBy(desc("movies_number")).limit(10)
 df_couple.show()
 
+
+## COMMENTI TOP 10 ##
+
+df_tweet = df_genre_movies.groupBy('name', 'year', 'rating', 'review_url').agg(count('*'))\
+                            .select('name', 'year', 'rating', 'review_url')
+df_tweet_top_10 = df_tweet.orderBy(desc('rating')).limit(10)
+df_tweet_top_10.show()
+
+# Funzione per recuperare la recensione da un URL
+def get_review_from_url(url):
+    reviews = []
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            comments = soup.find_all('div', class_='text show-more__control')
+            for comment in comments:
+                reviews.append(comment.text.strip())
+            text = ' '.join(reviews)
+            text = text.replace(",", "") \
+                        .replace(";", "") \
+                        .replace(":", "") \
+                        .replace("(", "") \
+                        .replace(")", "") \
+                        .replace("!", "") \
+                        .replace("?", "") \
+                        .replace(".", "")
+            text = text.lower()
+            text = text.split()
+            return text
+        else:
+            return "else"
+    except:
+        return "eccezione"
+
+# Definisce le stop words
+englishStopWords = ["and", "to", "the", "into", "on", "of", "by", "or", "in", "a", "with", "that", "she", "it", "i",
+                    "you", "he", "we", "they", "her", "his", "its", "this", "that", "at", "as", "for", "not", "so",
+                    "do", "is", "was", "are", "have", "has", "an", "my", "-", "but", "be", "film", "movie", "one",
+                   "from", "it's", "me", "where"]
+
+top_tweets = df_tweet_top_10.select('name', 'year', 'rating', 'review_url').collect()
+
+df_top_review = None
+
+for tweet in top_tweets:
+    url = tweet['review_url']
+    text = get_review_from_url(url)
+    text = [word for word in text if word not in englishStopWords]
+    top_word_dic = {}
+    top_word_list = []
+
+    for word in text:
+        if word in top_word_list:
+            top_word_dic[word] += 1
+        else:
+            top_word_dic[word] = 1
+            top_word_list.append(word)
+
+    # Ordinare il dizionario filtrato per valori in ordine decrescente
+    top_word_dic_ordinato = dict(sorted(top_word_dic.items(), key=lambda x: x[1], reverse=True))
+    top_five_words = dict(list(top_word_dic_ordinato.items())[:5])
+
+    # Crea un DataFrame Spark con una colonna di tipo MapType
+    df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
+                                 tweet['rating'], top_five_words,)],
+                               ['name', 'year', 'rating', "top_words"])
+
+    if df_top_review is None:
+        df_top_review = df_temp
+    else:
+        df_top_review = df_top_review.union(df_temp)
+
+# Mostra il DataFrame
+df_top_review.show(truncate=False)
+
+
+## COMMENTI FLOP 10 ## 
+
+df_tweet_flop_10 = df_tweet.orderBy(('rating')).limit(10)
+df_tweet_flop_10.show()
+
+flop_tweets = df_tweet_flop_10.select('name', 'year', 'rating', 'review_url').collect()
+
+df_flop_review = None
+
+for tweet in flop_tweets:
+    url = tweet['review_url']
+    text = get_review_from_url(url)
+    text = [word for word in text if word not in englishStopWords]
+    flop_word_dic = {}
+    flop_word_list = []
+
+    for word in text:
+        if word in flop_word_list:
+            flop_word_dic[word] += 1
+        else:
+            flop_word_dic[word] = 1
+            flop_word_list.append(word)
+
+    # Ordinare il dizionario filtrato per valori in ordine decrescente
+    flop_word_dic_ordinato = dict(sorted(flop_word_dic.items(), key=lambda x: x[1], reverse=True))
+    flop_five_words = dict(list(flop_word_dic_ordinato.items())[:5])
+
+    # Crea un DataFrame Spark con una colonna di tipo MapType
+    df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
+                                 tweet['rating'], flop_five_words,)],
+                               ['name', 'year', 'rating', "top_words"])
+
+    if df_flop_review is None:
+        df_flop_review = df_temp
+    else:
+        df_flop_review = df_flop_review.union(df_temp)
+
+# Mostra il DataFrame
+df_flop_review.show(truncate=False)
