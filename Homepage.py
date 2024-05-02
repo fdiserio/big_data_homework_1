@@ -11,22 +11,29 @@ st.set_page_config(
     layout='wide',
     initial_sidebar_state='expanded'  # Espandi la barra laterale inizialmente, se desiderato
     )
-st.title('🎬📽️ CINE-DATA: Dataset Cinematografici 🎞️🎥')
+st.title('🎬📽️:rainbow[CINE-DATA: Dataset Cinematografici]🎞️🎥')
 
 ## VISUALIZE DATASET ##
 left_column, right_column = st.columns(2)
 left_check = left_column.checkbox("IMDB Dataset")
 right_check = right_column.checkbox("GENRE Dataset")
 
-### **INSTALLAZIONE PY-SPARK** ###
-# Verify the Spark version running on the virtual cluster
-sc = SparkContext.getOrCreate()
-assert  "3." in sc.version, "Verify that the cluster Spark's version is 3.x"
-print("Spark version:", sc.version)
 
-# Creiamo sessione Spark
-spark = SparkSession(sc)
-print(spark)
+### **INSTALLAZIONE PY-SPARK** ###
+@st.cache_resource
+def install_pyspark():
+    # Verify the Spark version running on the virtual cluster
+    sc = SparkContext.getOrCreate()
+    assert  "3." in sc.version, "Verify that the cluster Spark's version is 3.x"
+    print("Spark version:", sc.version)
+
+    # Creiamo sessione Spark
+    spark = SparkSession(sc)
+    print(spark)
+
+    return sc, spark
+
+sc, spark = install_pyspark()
 
 
 ### DATASET ###
@@ -55,107 +62,117 @@ war_path = genres_path + "/War.csv"
 
 
 ### IMDB DATASET ###
+@st.cache_resource
+def imdb_dataset(_spark):
 
-# Apri il file CSV in modalità lettura
-with open(imdb_path, 'r', encoding="utf-8") as file:
-    # Leggi tutte le righe del file
-    lines = file.readlines()
- 
-# Sostituisci tutte le occorrenze di "" con ''
-lines = [line.replace('""', "'") for line in lines]
-lines = [line.replace("['", "") for line in lines]
-lines = [line.replace("']", "") for line in lines]
-lines = [line.replace("',", ",") for line in lines]
-lines = [line.replace(", ", ",") for line in lines]
-lines = [line.replace(",'", ",") for line in lines]
- 
-# Apri il file CSV in modalità scrittura e scrivi le righe modificate
-with open(imdb_path_2, 'w', encoding="utf-8") as file:
-    file.writelines(lines)
+    # Apri il file CSV in modalità lettura
+    with open(imdb_path, 'r', encoding="utf-8") as file:
+        # Leggi tutte le righe del file
+        lines = file.readlines()
+    
+    # Sostituisci tutte le occorrenze di "" con ''
+    lines = [line.replace('""', "'") for line in lines]
+    lines = [line.replace("['", "") for line in lines]
+    lines = [line.replace("']", "") for line in lines]
+    lines = [line.replace("',", ",") for line in lines]
+    lines = [line.replace(", ", ",") for line in lines]
+    lines = [line.replace(",'", ",") for line in lines]
+    
+    # Apri il file CSV in modalità scrittura e scrivi le righe modificate
+    with open(imdb_path_2, 'w', encoding="utf-8") as file:
+        file.writelines(lines)
 
-# IMDB DATASET
-df_imdb_movies = spark.read \
-                    .option("inferSchema", "true") \
-                    .option("header", "true") \
-                    .csv(imdb_path_2)
+    # IMDB DATASET
+    df_imdb_movies = spark.read \
+                        .option("inferSchema", "true") \
+                        .option("header", "true") \
+                        .csv(imdb_path_2)
 
-#df_imdb_movies.printSchema()
+    #df_imdb_movies.printSchema()
 
-# Lista delle colonne da convertire e il relativo tipo di dato
-columns_to_convert = {
-    "year": "integer",
-    "rating": "float",
-    "metascore": "float",
-    "votes": "integer",
-    "gross": "float"
-}
+    # Lista delle colonne da convertire e il relativo tipo di dato
+    columns_to_convert = {
+        "year": "integer",
+        "rating": "float",
+        "metascore": "float",
+        "votes": "integer",
+        "gross": "float"
+    }
 
-# Converti le colonne specificate nel tipo di dato desiderato
-for col_name, col_type in columns_to_convert.items():
-    df_imdb_movies = df_imdb_movies.withColumn(col_name, col(col_name).cast(col_type))
+    # Converti le colonne specificate nel tipo di dato desiderato
+    for col_name, col_type in columns_to_convert.items():
+        df_imdb_movies = df_imdb_movies.withColumn(col_name, col(col_name).cast(col_type))
 
-# Specifica la colonna da convertire e il relativo tipo di dato
-columns_to_convert = ["genre","director","stars"]
+    # Specifica la colonna da convertire e il relativo tipo di dato
+    columns_to_convert = ["genre","director","stars"]
 
-# Converti la colonna specificata nel tipo di dato desiderato
-for column in columns_to_convert:
-    df_imdb_movies = df_imdb_movies.withColumn(column, split(col(column), ","))
+    # Converti la colonna specificata nel tipo di dato desiderato
+    for column in columns_to_convert:
+        df_imdb_movies = df_imdb_movies.withColumn(column, split(col(column), ","))
 
-# Elimina film ripetuti
-df_imdb_movies = df_imdb_movies.distinct()
+    # Elimina film ripetuti
+    df_imdb_movies = df_imdb_movies.distinct()
 
-# Verifica lo schema aggiornato
-#df_imdb_movies.printSchema()
+    # Eliminiamo tutti i film con anno NULL (per le successive operazioni)
+    df_imdb_movies = df_imdb_movies.filter(df_imdb_movies["year"].isNotNull())
 
-# Eliminiamo tutti i film con anno NULL (per le successive operazioni)
-df_imdb_movies = df_imdb_movies.filter(df_imdb_movies["year"].isNotNull())
+    return df_imdb_movies
+
+df_imdb_movies = imdb_dataset(spark)
 
 # Visualizza il dataset
 if left_check:
     left_column.dataframe(df_imdb_movies)
 
+
 ### GENRE DATASET ###
+@st.cache_resource
+def genre_dataset(_spark):
 
-# Definisci una lista contenente tutti i percorsi dei file CSV
-file_paths = [
-    action_path, adventure_path, animation_path, biography_path,
-    comedy_path, drama_path, fantasy_path, history_path,
-    horror_path, music_path, mystery_path, romance_path,
-    sci_fi_path, sport_path, thriller_path, war_path
-]
+    # Definisci una lista contenente tutti i percorsi dei file CSV
+    file_paths = [
+        action_path, adventure_path, animation_path, biography_path,
+        comedy_path, drama_path, fantasy_path, history_path,
+        horror_path, music_path, mystery_path, romance_path,
+        sci_fi_path, sport_path, thriller_path, war_path
+    ]
 
-# Inizializza un DataFrame vuoto
-df_genre_movies = None
+    # Inizializza un DataFrame vuoto
+    df_genre_movies = None
 
-# Carica ciascun file CSV e uniscilo al DataFrame combinato
-for path in file_paths:
-    df = spark.read.option("inferSchema", "true").option("header", "true").csv(path)
-    if df_genre_movies is None:
-        df_genre_movies = df
-    else:
-        df_genre_movies = df_genre_movies.union(df)
+    # Carica ciascun file CSV e uniscilo al DataFrame combinato
+    for path in file_paths:
+        df = spark.read.option("inferSchema", "true").option("header", "true").csv(path)
+        if df_genre_movies is None:
+            df_genre_movies = df
+        else:
+            df_genre_movies = df_genre_movies.union(df)
 
-# Verifica lo schema del DataFrame combinato
-#df_genre_movies.printSchema()
+    # Verifica lo schema del DataFrame combinato
+    #df_genre_movies.printSchema()
 
-# Converti durata in minuti per leggerlo come int
-hours = regexp_extract(col("run_length"), r"(\d+)h", 1).cast("int")  # Estrae le ore
-minutes = regexp_extract(col("run_length"), r"(\d+)min", 1).cast("int")  # Estrae i minuti
-df_genre_movies = df_genre_movies.withColumn("run_length", (hours * 60) + minutes)
+    # Converti durata in minuti per leggerlo come int
+    hours = regexp_extract(col("run_length"), r"(\d+)h", 1).cast("int")  # Estrae le ore
+    minutes = regexp_extract(col("run_length"), r"(\d+)min", 1).cast("int")  # Estrae i minuti
+    df_genre_movies = df_genre_movies.withColumn("run_length", (hours * 60) + minutes)
 
-# Specifica la colonna da convertire e il relativo tipo di dato
-column_to_convert = "genres"
+    # Specifica la colonna da convertire e il relativo tipo di dato
+    column_to_convert = "genres"
 
-# Converti la colonna specificata nel tipo di dato desiderato
-df_genre_movies = df_genre_movies.withColumn(column_to_convert, regexp_replace(col(column_to_convert),r" ",""))
-df_genre_movies = df_genre_movies.withColumn(column_to_convert, split(col(column_to_convert), ";"))
-df_genre_movies = df_genre_movies.withColumn(column_to_convert, array_remove(col(column_to_convert), ""))
+    # Converti la colonna specificata nel tipo di dato desiderato
+    df_genre_movies = df_genre_movies.withColumn(column_to_convert, regexp_replace(col(column_to_convert),r" ",""))
+    df_genre_movies = df_genre_movies.withColumn(column_to_convert, split(col(column_to_convert), ";"))
+    df_genre_movies = df_genre_movies.withColumn(column_to_convert, array_remove(col(column_to_convert), ""))
 
-# Elimina film ripetuti
-df_genre_movies = df_genre_movies.distinct()
+    # Elimina film ripetuti
+    df_genre_movies = df_genre_movies.distinct()
 
-# Verifica lo schema aggiornato
-#df_genre_movies.printSchema()
+    # Verifica lo schema aggiornato
+    #df_genre_movies.printSchema()
+
+    return df_genre_movies
+
+df_genre_movies = genre_dataset(spark)
 
 # Visualizza il dataset
 if right_check:
@@ -163,278 +180,467 @@ if right_check:
 
 
 ### OPERATIONS ###
+# Menu' di Checkbox
+
+with st.sidebar:
+
+    spazio = st.columns(3)
+    spazio[1].header("$\color{yellow}\\bold{QUERY}$")
+    spazio[1].title(":rainbow[QUERY]")
+
+    left_column_query, right_column_query = st.columns(2)
+
+    # Lista delle fasi
+    queries = [
+        "Film Comuni",
+        "Tutti i Film",
+        "TOP 10",
+        "FLOP 10",
+        "Film più votato",
+        "Film più recensito",
+        "Film per genere",
+        "Media Voti per genere",
+        "Durata Media di un Film",
+        "Durata Media di un Film per genere",
+        "Rating Ponderato",     # SOLO
+        "Top film per cadenza decennale",   # SOLO
+        "Top Decennio",
+        "Mean Decennio",
+        "Attori in più film",
+        "Attori più presenti nei film migliori",
+        "Attori e Registri con più collaborazioni",     # SOLO
+        "Parole più ricorrenti nei commenti della Top 10",
+        "Parole più ricorrenti nei commenti della Flop 10"
+    ]
+
+    lista_select = [False for i in range(19)]
+
+    for i in range (0,10,2):
+        lista_select[i] = left_column_query.checkbox(queries[i])
+        lista_select[i+1] = right_column_query.checkbox(queries[i+1])
+
+    lista_select[10] = st.checkbox(queries[10])
+    lista_select[11] = st.checkbox(queries[11])
+
+    left_column_query, right_column_query = st.columns(2)
+
+    for i in range (12,16,2):
+        lista_select[i] = left_column_query.checkbox(queries[i])
+        lista_select[i+1] = right_column_query.checkbox(queries[i+1])
+
+    lista_select[16] = st.checkbox(queries[16])
+
+    left_column_query, right_column_query = st.columns(2)
+
+    lista_select[17] = left_column_query.checkbox(queries[17])
+    lista_select[18] = right_column_query.checkbox(queries[18])
+
+
+
+left_query1, right_query1 = st.columns(2)
 
 ## FILM COMUNI TRA DATASET ##
+@st.cache_resource
+def common_film(_df_imdb_movies, _df_genre_movies):
+    df_common_movies = df_imdb_movies.join(df_genre_movies, (df_imdb_movies["title"] == df_genre_movies["name"])
+                                            & (df_imdb_movies["year"] == df_genre_movies["year"]))\
+                                            .select(df_imdb_movies["title"],df_imdb_movies['year'])\
+                                            .distinct()
+    return df_common_movies
 
-df_common_movies = df_imdb_movies.join(df_genre_movies, (df_imdb_movies["title"] == df_genre_movies["name"])
-                                         & (df_imdb_movies["year"] == df_genre_movies["year"]))\
-                                        .select(df_imdb_movies["title"],df_imdb_movies['year'])\
-                                        .distinct()
+df_common_movies = common_film(df_imdb_movies, df_genre_movies)
 
-df_common_movies.show()
-print(df_common_movies.count())
+if lista_select[0]:
+    left_query1.header("$\color{lightblue}\\bold{Common}$ $\color{lightblue}\\bold{Film}$")
+    left_query1.dataframe(df_common_movies)
 
 
 ## TUTTI I FILM ##
+@st.cache_resource
+def all_film(_df_imdb_movies, _df_genre_movies):
+    df_all_movies = df_imdb_movies.select('title','year').union(df_genre_movies.select('name','year')).distinct()
+    return df_all_movies
 
-df_all_movies = df_imdb_movies.select('title','year').union(df_genre_movies.select('name','year')).distinct()
+df_all_movies = all_film(df_imdb_movies, df_genre_movies)
 
-df_all_movies.show()
-print(df_all_movies.count())
+if lista_select[1]:
+    right_query1.header("$\color{lightblue}\\bold{All}$ $\color{lightblue}\\bold{Film}$")
+    right_query1.dataframe(df_all_movies)
 
+
+left_query2, right_query2 = st.columns(2)
 
 ## FILM PIU' APPREZZATI ##
+@st.cache_resource
+def best_film(_df_imdb_movies, _df_genre_movies):
+    
+    rating_imdb = df_imdb_movies.select("title","year","rating")
+    rating_imdb = rating_imdb.withColumnRenamed("rating", "rating_imdb")
+    df_all_movies_voted = df_all_movies.join(rating_imdb, (df_all_movies["title"]==rating_imdb["title"])
+                                    & when(df_all_movies["year"].isNotNull(), (df_all_movies["year"]==rating_imdb["year"])), "left_outer")\
+                                    .select(df_all_movies["title"],df_all_movies["year"],rating_imdb["rating_imdb"]).distinct()
 
-rating_imdb = df_imdb_movies.select("title","year","rating")
-rating_imdb = rating_imdb.withColumnRenamed("rating", "rating_imdb")
-df_all_movies_voted = df_all_movies.join(rating_imdb, (df_all_movies["title"]==rating_imdb["title"])
-                                   & when(df_all_movies["year"].isNotNull(), (df_all_movies["year"]==rating_imdb["year"])), "left_outer")\
-                                   .select(df_all_movies["title"],df_all_movies["year"],rating_imdb["rating_imdb"]).distinct()
+    rating_genre = df_genre_movies.select("name","year","rating")
+    rating_genre = rating_genre.withColumnRenamed("rating", "rating_genre")
+    df_all_movies_voted = df_all_movies_voted.join(rating_genre, (df_all_movies_voted["title"]==rating_genre["name"])
+                                            &(df_all_movies_voted["year"]==rating_genre["year"]), "left_outer")\
+                                            .select(df_all_movies["title"],df_all_movies["year"],\
+                                                    rating_imdb["rating_imdb"],rating_genre["rating_genre"]).distinct()
 
-rating_genre = df_genre_movies.select("name","year","rating")
-rating_genre = rating_genre.withColumnRenamed("rating", "rating_genre")
-df_all_movies_voted = df_all_movies_voted.join(rating_genre, (df_all_movies_voted["title"]==rating_genre["name"])
-                                         &(df_all_movies_voted["year"]==rating_genre["year"]), "left_outer")\
-                                         .select(df_all_movies["title"],df_all_movies["year"],\
-                                                 rating_imdb["rating_imdb"],rating_genre["rating_genre"]).distinct()
+    df_all_movies_voted = df_all_movies_voted.withColumn("rating", when(col("rating_imdb").isNotNull()
+                                                                & col("rating_genre").isNotNull(),
+                                                                round((col("rating_imdb")+col("rating_genre"))/lit(2),1))\
+                                                                .otherwise(round(coalesce(col("rating_imdb"), col("rating_genre")), 1)))
 
-df_all_movies_voted = df_all_movies_voted.withColumn("rating", when(col("rating_imdb").isNotNull()
-                                                             & col("rating_genre").isNotNull(),
-                                                             round((col("rating_imdb")+col("rating_genre"))/lit(2),1))\
-                                                            .otherwise(round(coalesce(col("rating_imdb"), col("rating_genre")), 1)))
+    df_all_movies_voted = df_all_movies_voted.select("title","year","rating")
+    top_10 = df_all_movies_voted.orderBy(desc("rating")).limit(10)
 
-df_all_movies_voted = df_all_movies_voted.select("title","year","rating")
-top_10 = df_all_movies_voted.orderBy(desc("rating")).limit(10)
+    return top_10, df_all_movies_voted
 
-top_10.show()
+top_10, df_all_movies_voted = best_film(df_imdb_movies, df_genre_movies)
+
+if lista_select[2]:
+    left_query2.header("$\color{cyan}\\bold{TOP}$ $\color{cyan}\\bold{10}$")
+    left_query2.dataframe(top_10)
 
 
 ## FILM PEGGIORI ##
+@st.cache_resource
+def flop_film(_df_all_movies_voted):
+    flop_10 = df_all_movies_voted.orderBy("rating").limit(10)
+    return flop_10
 
-flop_10 = df_all_movies_voted.orderBy("rating").limit(10)
-flop_10.show()
+flop_10 = flop_film(df_all_movies_voted)
 
+if lista_select[3]:
+    right_query2.header("$\color{cyan}\\bold{FLOP}$ $\color{cyan}\\bold{10}$")
+    right_query2.dataframe(flop_10)
+
+
+
+
+left_line3, right_line3 = st.columns(2)
 
 ## FILM VOTATO DA PIU' UTENTI ##
+@st.cache_resource
+def most_voted_film(_df_imdb_movies, _df_genre_movies, _df_all_movies):
 
-df_voters = df_all_movies.select("*").withColumn("voters",lit(0))
+    df_voters = df_all_movies.select("*").withColumn("voters",lit(0))
 
-df_voters_imdb = df_imdb_movies.select("title","year","votes")
-df_voters_imdb = df_voters_imdb.withColumnRenamed("votes", "voters_imdb")
-df_voters = df_voters.join(df_voters_imdb, (df_voters["title"]==df_voters_imdb["title"])
-                     &(df_voters["year"]==df_voters_imdb["year"]), "left_outer")\
-                     .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"]).distinct()
+    df_voters_imdb = df_imdb_movies.select("title","year","votes")
+    df_voters_imdb = df_voters_imdb.withColumnRenamed("votes", "voters_imdb")
+    df_voters = df_voters.join(df_voters_imdb, (df_voters["title"]==df_voters_imdb["title"])
+                        &(df_voters["year"]==df_voters_imdb["year"]), "left_outer")\
+                        .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"]).distinct()
 
-df_voters_genre = df_genre_movies.select("name","year","num_raters")
-df_voters_genre = df_voters_genre.groupBy("name","year").avg("num_raters")
-df_voters_genre = df_voters_genre.withColumn("voters_genre", col("avg(num_raters)").cast("int"))
-df_voters_genre = df_voters_genre.select("name","year","voters_genre")
-df_voters = df_voters.join(df_voters_genre, (df_voters["title"]==df_voters_genre["name"])
-                     &(df_voters["year"]==df_voters_genre["year"]), "left_outer")\
-                     .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"],df_voters_genre["voters_genre"])\
-                     .distinct()
+    df_voters_genre = df_genre_movies.select("name","year","num_raters")
+    df_voters_genre = df_voters_genre.groupBy("name","year").avg("num_raters")
+    df_voters_genre = df_voters_genre.withColumn("voters_genre", col("avg(num_raters)").cast("int"))
+    df_voters_genre = df_voters_genre.select("name","year","voters_genre")
+    df_voters = df_voters.join(df_voters_genre, (df_voters["title"]==df_voters_genre["name"])
+                        &(df_voters["year"]==df_voters_genre["year"]), "left_outer")\
+                        .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"],df_voters_genre["voters_genre"])\
+                        .distinct()
 
-df_voters = df_voters.withColumn("voters", greatest(col("voters_imdb"),col("voters_genre")))\
-                     .select("title","year","voters")
+    df_voters = df_voters.withColumn("voters", greatest(col("voters_imdb"),col("voters_genre")))\
+                        .select("title","year","voters")
 
-most_voted = df_voters.orderBy(desc("voters")).limit(1)
+    most_voted = df_voters.orderBy(desc("voters")).limit(1)
 
-most_voted.show()
+    return most_voted, df_voters
 
-df_voters = df_all_movies.select("*").withColumn("voters",lit(0))
-
-df_voters_imdb = df_imdb_movies.select("title","year","votes")
-df_voters_imdb = df_voters_imdb.withColumnRenamed("votes", "voters_imdb")
-df_voters = df_voters.join(df_voters_imdb, (df_voters["title"]==df_voters_imdb["title"])
-                     &(df_voters["year"]==df_voters_imdb["year"]), "left_outer")\
-                     .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"]).distinct()
-
-df_voters_genre = df_genre_movies.select("name","year","num_raters")
-df_voters_genre = df_voters_genre.groupBy("name","year").avg("num_raters")
-df_voters_genre = df_voters_genre.withColumn("voters_genre", col("avg(num_raters)").cast("int"))
-df_voters_genre = df_voters_genre.select("name","year","voters_genre")
-df_voters = df_voters.join(df_voters_genre, (df_voters["title"]==df_voters_genre["name"])
-                     &(df_voters["year"]==df_voters_genre["year"]), "left_outer")\
-                     .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"],df_voters_genre["voters_genre"])\
-                     .distinct()
-
-df_voters = df_voters.withColumn("voters", greatest(col("voters_imdb"),col("voters_genre")))
-
-most_voted = df_voters.select("title","year","voters").select(max("voters")).collect()[0][0]
-
-most_voted = df_voters.select('title','year','voters').where(col('voters')==most_voted)
-
-most_voted.show()
+most_voted, df_voters = most_voted_film(df_imdb_movies, df_genre_movies, df_all_movies)
+   
+if lista_select[4]:
+    left_line3.header("$\color{lightgreen}\\bold{Most}$ $\color{lightgreen}\\bold{Voted}$")
+    left_line3.dataframe(most_voted)
 
 
 ## FILM RECENSITO DA PIU' UTENTI ##
+@st.cache_resource
+def most_reviewed_film(_df_genre_movies):
 
-most_reviewed = df_genre_movies.groupBy('name','year').avg('num_reviews')\
-                .select('name','year', 'avg(num_reviews)')
+    most_reviewed = df_genre_movies.groupBy('name','year').avg('num_reviews')\
+                    .select('name','year', 'avg(num_reviews)')
 
-most_reviewed = most_reviewed.select("name","year","avg(num_reviews)")\
-                   .orderBy(desc("avg(num_reviews)")).limit(1)
+    most_reviewed = most_reviewed.select("name","year","avg(num_reviews)")\
+                    .orderBy(desc("avg(num_reviews)")).limit(1)
 
-most_reviewed.show()
+    return most_reviewed
+
+most_reviewed = most_reviewed_film(df_genre_movies)
+
+if lista_select[5]:
+    right_line3.header("$\color{lightgreen}\\bold{Most}$ $\color{lightgreen}\\bold{Reviewed}$")
+    right_line3.dataframe(most_voted)
 
 
-## RATING PONDERATO ##
 
-# A parità di voti, si studia il rating di ogni film
-df_ratio = df_all_movies_voted.join(df_voters, (df_all_movies_voted['title']==df_voters['title'])\
-                             & (df_all_movies_voted['year']==df_voters['year']))\
-                        .select(df_all_movies_voted['title'], df_all_movies_voted['year'], 'voters', 'rating')
-
-df_ratio = df_ratio.withColumn("weighted_rating", round(df_ratio['rating'] * (log10(col("voters"))),1))
-best_movies = df_ratio.select('title','year','weighted_rating', 'rating', 'voters').orderBy(desc('weighted_rating')).limit(10)
-best_movies.show(truncate=False)
-
+left_line4, right_line4 = st.columns(2)
 
 ## FILM PER GENERE ##
+@st.cache_resource
+def film_x_genre(_df_imdb_movies, _df_genre_movies):
 
-df_imdb_exploded = df_imdb_movies.withColumn("genre", explode("genre"))
+    df_imdb_exploded = df_imdb_movies.withColumn("genre", explode("genre"))
 
-# Ottieni i valori unici della colonna esplosa
-df_unique_genre = df_imdb_exploded.select("genre").distinct()
+    # Ottieni i valori unici della colonna esplosa
+    df_unique_genre = df_imdb_exploded.select("genre").distinct()
 
-lista_genres = []
-for i in range (df_unique_genre.count()):
-    lista_genres.append(df_unique_genre.collect()[i][0])
+    lista_genres = []
+    for i in range (df_unique_genre.count()):
+        lista_genres.append(df_unique_genre.collect()[i][0])
 
-print(lista_genres)
+    film_x_genre = {}
 
-film_x_genre = {}
+    for elem in lista_genres:
+        imdb_genre = df_imdb_movies.filter(array_contains(col("genre"), elem))\
+                                    .select('title','year','genre').count()
+        film_x_genre[elem] = imdb_genre
 
-for elem in lista_genres:
-    imdb_genre = df_imdb_movies.filter(array_contains(col("genre"), elem))\
-                                .select('title','year','genre').count()
-    film_x_genre[elem] = imdb_genre
 
-print(film_x_genre)
+    df_diff = df_genre_movies.join(df_common_movies, (df_genre_movies["name"]==df_common_movies["title"])
+                                & (df_genre_movies["year"]==df_common_movies["year"]), how="left_anti")
 
-df_diff = df_genre_movies.join(df_common_movies, (df_genre_movies["name"]==df_common_movies["title"])
-                            & (df_genre_movies["year"]==df_common_movies["year"]), how="left_anti")
+    for elem in lista_genres:
+        genre_genre = df_diff.filter(array_contains(col("genres"), elem))\
+                                    .select('name','year','genres').count()
+        film_x_genre[elem] += genre_genre
 
-for elem in lista_genres:
-    genre_genre = df_diff.filter(array_contains(col("genres"), elem))\
-                                .select('name','year','genres').count()
-    film_x_genre[elem] += genre_genre
+    return film_x_genre, df_diff, df_imdb_exploded
 
-print(film_x_genre)
+film_x_genre, df_diff, df_imdb_exploded = film_x_genre(df_imdb_movies, df_genre_movies)
+
+if lista_select[6]:
+    left_line4.header("$\color{lime}\\bold{Film}$ $\color{lime}\\bold{x}$ $\color{lime}\\bold{Genere}$")
+    left_line4.table(film_x_genre)
 
 
 ## MEDIA VOTI PER GENERE ##
+@st.cache_resource
+def mean_genre(_df_diff, _df_imdb_exploded):
 
-df_diff_exploded = df_diff.withColumn("genre", explode("genres"))
+    df_diff_exploded = df_diff.withColumn("genre", explode("genres"))
 
-# uniamo le tabelle exploded
-df_exploded = df_imdb_exploded.select('genre', 'rating').union(df_diff_exploded.select('genre', 'rating'))
+    # uniamo le tabelle exploded
+    df_exploded = df_imdb_exploded.select('genre', 'rating').union(df_diff_exploded.select('genre', 'rating'))
 
-df_mean_genre = df_exploded.groupBy("genre").avg('rating')\
-                            .select('genre', 'avg(rating)')
+    df_mean_genre = df_exploded.groupBy("genre").avg('rating')\
+                                .select('genre', 'avg(rating)')
 
-df_mean_genre = df_mean_genre.withColumn("rating", round(col("avg(rating)"),1)).select("genre","rating")
+    df_mean_genre = df_mean_genre.withColumn("rating", round(col("avg(rating)"),1)).select("genre","rating")
 
-# Conta il numero di film per genere
-film_count_per_genre = df_exploded.groupBy("genre").agg(count('*').alias('film_count'))
+    # Conta il numero di film per genere
+    film_count_per_genre = df_exploded.groupBy("genre").agg(count('*').alias('film_count'))
 
-# Unisci i due DataFrame
-df_mean_genre_with_count = df_mean_genre.join(film_count_per_genre, 'genre', 'inner')
+    # Unisci i due DataFrame
+    df_mean_genre_with_count = df_mean_genre.join(film_count_per_genre, 'genre', 'inner')
 
-df_mean_genre_with_count.show()
+    return df_mean_genre_with_count
 
+df_mean_genre_with_count = mean_genre(df_diff, df_imdb_exploded)
+
+if lista_select[7]:
+    right_line4.header("$\color{lime}\\bold{Voti}$ $\color{lime}\\bold{x}$ $\color{lime}\\bold{Genere}$")
+    right_line4.dataframe(df_mean_genre_with_count, use_container_width=True)
+
+
+
+left_line5, right_line5 = st.columns(2)
 
 ## DURATA MEDIA DI UN FILM ##
+@st.cache_resource
+def mean_time(_df_genre_movies):
 
-df_time = df_genre_movies.select(avg('run_length'))
-df_time = df_time.withColumn("run_length", round(col("avg(run_length)"),1)).select("run_length")
+    df_time = df_genre_movies.select(avg('run_length'))
+    df_time = df_time.withColumn("run_length", round(col("avg(run_length)"),1)).select("run_length")
 
-# Vediamo che in media un film dura 2h, ovvero 120min
-df_time.show()
+    return df_time
+
+df_time = mean_time(df_genre_movies)
+
+if lista_select[8]:
+    left_line5.header("$\color{orange}\\bold{Mean}$ $\color{orange}\\bold{Timex}$ $\color{orange}\\bold{Film}$")
+    left_line5.dataframe(df_time)
 
 
 ## DURATA MEDIA PER GENERE ##
+@st.cache_resource
+def mean_time_genre(_df_genre_movies):
 
-df_genre_exploded = df_genre_movies.withColumn("genre", explode("genres"))
+    df_genre_exploded = df_genre_movies.withColumn("genre", explode("genres"))
 
-df_time_genre = df_genre_exploded.groupBy('genre').avg('run_length').select('genre', 'avg(run_length)')
+    df_time_genre = df_genre_exploded.groupBy('genre').avg('run_length').select('genre', 'avg(run_length)')
 
-df_time_genre = df_time_genre.orderBy(desc('avg(run_length)'))
+    df_time_genre = df_time_genre.orderBy(desc('avg(run_length)'))
 
-df_time_genre = df_time_genre.withColumn("run_length", round(col("avg(run_length)"),1))\
-                             .select("genre","run_length")
+    df_time_genre = df_time_genre.withColumn("run_length", round(col("avg(run_length)"),1))\
+                                .select("genre","run_length")
 
-df_time_genre.show()
+    return df_time_genre
+
+df_time_genre = mean_time_genre(df_genre_movies)
+
+if lista_select[9]:
+    right_line5.header("$\color{orange}\\bold{Mean}$ $\color{orange}\\bold{TimexGenre}$")
+    right_line5.dataframe(df_time_genre, use_container_width=True)
+
+
+
+## RATING PONDERATO ##
+@st.cache_resource
+def rating_ponderato(_df_all_movies_voted, _df_voters):
+    # A parità di voti, si studia il rating di ogni film
+    df_ratio = df_all_movies_voted.join(df_voters, (df_all_movies_voted['title']==df_voters['title'])\
+                                & (df_all_movies_voted['year']==df_voters['year']))\
+                            .select(df_all_movies_voted['title'], df_all_movies_voted['year'], 'voters', 'rating')
+
+    df_ratio = df_ratio.withColumn("weighted_rating", round(df_ratio['rating'] * (log10(col("voters"))),1))
+    best_movies = df_ratio.select('title','year','weighted_rating', 'rating', 'voters').orderBy(desc('weighted_rating')).limit(10)
+
+    return best_movies
+
+best_movies = rating_ponderato(df_all_movies_voted, df_voters)
+
+if lista_select[10]:
+    st.header("$\color{magenta}\\bold{Rating}$ $\color{magenta}\\bold{Ponderato}$")
+    st.dataframe(best_movies)
+
 
 
 ## TOP FILM PER CADENZA DECENNALE ##
+@st.cache_resource
+def top_decennio(_df_all_movies_voted):
 
-df_year = []
-for year in range(1910, 2030, 10):
-    df_year.append(df_all_movies_voted.filter((col('year')>=year) & (col('year')<(year+10)))\
-                                    .orderBy(desc('rating')).limit(5))
-    df_year[-1].show(truncate=False)
+    df_year = []
+    for year in range(1910, 2030, 10):
+        df_year.append(df_all_movies_voted.filter((col('year')>=year) & (col('year')<(year+10)))\
+                                        .orderBy(desc('rating')).limit(5))
+
+    return df_year
+
+df_year = top_decennio(df_all_movies_voted)
+
+if lista_select[11]:
+    st.header("$\color{violet}\\bold{Film}$ $\color{violet}\\bold{x}$ $\color{violet}\\bold{Decennio}$")
+   
+    left_line_6, right_line_6 = st.columns(2)
+    left_line_6.dataframe(df_year[0], use_container_width=True)
+    right_line_6.dataframe(df_year[1], use_container_width=True)
+
+    left_line6, right_line6 = st.columns(2)
+    for i in range(2,len(df_year),2):
+        left_line6.dataframe(df_year[i], use_container_width=True)
+        right_line6.dataframe(df_year[i+1], use_container_width=True)
 
 
 ## QUALE DECENNIO HA DATO I FILM MIGLIORI MEDIAMENTE E IN ASSOLUTO ##
+@st.cache_resource
+def top_10_decennio(_df_all_movies_voted):
 
-# Aggiungi la colonna 'decennio' al DataFrame
-df_10 = df_all_movies_voted.withColumn('decennio', (col('year') / 10).cast("int") * 10)
+    # Aggiungi la colonna 'decennio' al DataFrame
+    df_10 = df_all_movies_voted.withColumn('decennio', (col('year') / 10).cast("int") * 10)
 
-df_10_mean = df_10.groupBy('decennio').avg('rating')
-df_10_mean = df_10_mean.withColumn('rating', round(col('avg(rating)'), 1)).select('decennio', 'rating')
-df_10_mean = df_10_mean.orderBy(desc('rating'))
-df_10_mean.show()
+    df_10_mean = df_10.groupBy('decennio').avg('rating')
+    df_10_mean = df_10_mean.withColumn('rating', round(col('avg(rating)'), 1)).select('decennio', 'rating')
+    df_10_mean = df_10_mean.orderBy(desc('rating'))
+    df_10_mean.show()
 
-df_10_max = df_10.groupBy('decennio').max('rating')
-df_10_max = df_10_max.withColumn('rating', round(col('max(rating)'), 1)).select('decennio', 'rating')
-df_10_max = df_10_max.orderBy(desc('rating'))
-df_10_max.show()
+    df_10_max = df_10.groupBy('decennio').max('rating')
+    df_10_max = df_10_max.withColumn('rating', round(col('max(rating)'), 1)).select('decennio', 'rating')
+    df_10_max = df_10_max.orderBy(desc('rating'))
+    
+    return df_10_max, df_10_mean
 
+df_10_max, df_10_mean = top_10_decennio(df_all_movies_voted)
+
+left_line7, right_line7 = st.columns(2)
+
+if lista_select[12]:
+    left_line7.header("$\color{pink}\\bold{TOP}$ $\color{pink}\\bold{x}$ $\color{pink}\\bold{Decennio}$")
+    left_line7.dataframe(df_10_max, use_container_width=True)
+
+if lista_select[13]:
+    right_line7.header("$\color{pink}\\bold{MEAN}$ $\color{pink}\\bold{x}$ $\color{pink}\\bold{Decennio}$")
+    right_line7.dataframe(df_10_mean, use_container_width=True)
+
+
+
+left_line8, right_line8 = st.columns(2)
 
 ## ATTORI CHE HANNO FATTO PIU' FILM ##
+@st.cache_resource
+def actors(_df_imdb_movies):
 
-df_imdb_exploded_actors = df_imdb_movies.withColumn("actor", explode("stars"))
+    df_imdb_exploded_actors = df_imdb_movies.withColumn("actor", explode("stars"))
 
-df_actors = df_imdb_exploded_actors.groupBy("actor").agg(count("*").alias("movies_number"))
-df_actors = df_actors.orderBy(desc("movies_number"))
-df_stars = df_actors.limit(10)
-df_stars.show()
+    df_actors = df_imdb_exploded_actors.groupBy("actor").agg(count("*").alias("movies_number"))
+
+    df_actors = df_actors.orderBy(desc("movies_number"))
+    
+    df_stars = df_actors.limit(10)
+
+    return df_stars, df_actors, df_imdb_exploded_actors
+
+df_stars, df_actors, df_imdb_exploded_actors = actors(df_imdb_movies)
+
+if lista_select[14]:
+    left_line8.header("$\color{yellow}\\bold{Stars}$")
+    left_line8.dataframe(df_stars)
 
 
 ## ATTORI PIU' PRESENTI CHE HANNO FATTO I FILM PIU' APPREZZATI ##
+@st.cache_resource
+def star_x_film(_top_10, _df_imdb_exploded_actors, _df_actors):
 
-df_most_appreciated = top_10.join(df_imdb_exploded_actors, (top_10["title"]==df_imdb_exploded_actors["title"])
-                                 & (top_10["year"]==df_imdb_exploded_actors["year"]))\
-                                  .select(top_10["title"], top_10["year"], top_10["rating"],
-                                         df_imdb_exploded_actors["actor"])
+    df_most_appreciated = top_10.join(df_imdb_exploded_actors, (top_10["title"]==df_imdb_exploded_actors["title"])
+                                    & (top_10["year"]==df_imdb_exploded_actors["year"]))\
+                                    .select(top_10["title"], top_10["year"], top_10["rating"],
+                                            df_imdb_exploded_actors["actor"])
 
-df_most_appreciated = df_most_appreciated.withColumnRenamed("actor","top_actor")
-df_most_appreciated = df_most_appreciated.join(df_actors, df_most_appreciated["top_actor"]==df_actors["actor"])\
-                                         .select(df_most_appreciated["title"], df_actors["actor"],
-                                                 df_most_appreciated["rating"], df_actors["movies_number"])
+    df_most_appreciated = df_most_appreciated.withColumnRenamed("actor","top_actor")
+    df_most_appreciated = df_most_appreciated.join(df_actors, df_most_appreciated["top_actor"]==df_actors["actor"])\
+                                            .select(df_most_appreciated["title"], df_actors["actor"],
+                                                    df_most_appreciated["rating"], df_actors["movies_number"])
 
-df_film_stars = df_most_appreciated.orderBy(desc("movies_number")).limit(10)
-df_film_stars.show(truncate=False)
+    df_film_stars = df_most_appreciated.orderBy(desc("movies_number")).limit(10)
+
+    return df_time_genre
+
+df_stars_film = star_x_film(top_10, df_imdb_exploded_actors, df_actors)
+
+if lista_select[14]:
+    right_line8.header("$\color{yellow}\\bold{Stars}$ $\color{yellow}\\bold{Most}$ $\color{yellow}\\bold{Film}$")
+    right_line8.dataframe(df_stars_film)
+
+
 
 
 ## ATTORI E REGISTI CON PIU' COLLABORAZIONI ##
+@st.cache_resource
+def actor_director(_df_imdb_movies):
+   
+    df_imdb_directors = df_imdb_movies.withColumn("director", col("director")[0])
+    df_directors_actors = df_imdb_directors.withColumn("actor", explode("stars"))
+    df_couple = df_directors_actors.groupBy("director","actor").agg(count("*").alias("movies_number"))
+    df_couple = df_couple.filter(col("actor")!=col("director"))
+    df_couple = df_couple.orderBy(desc("movies_number")).limit(10)
+ 
+    return df_couple
 
-df_imdb_directors = df_imdb_movies.withColumn("director", col("director")[0])
-df_directors_actors = df_imdb_directors.withColumn("actor", explode("stars"))
-df_couple = df_directors_actors.groupBy("director","actor").agg(count("*").alias("movies_number"))
-df_couple = df_couple.filter(col("actor")!=col("director"))
-df_couple = df_couple.orderBy(desc("movies_number")).limit(10)
-df_couple.show()
+df_couple = actor_director(df_imdb_movies)
 
+if lista_select[15]:
+    st.header("$\color{hardviolet}\\bold{Actor}$ $\color{violet}\\bold{x}$ $\color{violet}\\bold{Director}$")
+    st.dataframe(df_couple)
+
+
+
+
+left_line9, right_line9 = st.columns(2)
 
 ## COMMENTI TOP 10 ##
-
-df_tweet = df_genre_movies.groupBy('name', 'year', 'rating', 'review_url').agg(count('*'))\
-                            .select('name', 'year', 'rating', 'review_url')
-df_tweet_top_10 = df_tweet.orderBy(desc('rating')).limit(10)
-df_tweet_top_10.show()
-
+@st.cache_resource
 # Funzione per recuperare la recensione da un URL
 def get_review_from_url(url):
     reviews = []
@@ -466,80 +672,110 @@ def get_review_from_url(url):
 englishStopWords = ["and", "to", "the", "into", "on", "of", "by", "or", "in", "a", "with", "that", "she", "it", "i",
                     "you", "he", "we", "they", "her", "his", "its", "this", "that", "at", "as", "for", "not", "so",
                     "do", "is", "was", "are", "have", "has", "an", "my", "-", "but", "be", "film", "movie", "one",
-                   "from", "it's", "me", "where"]
+                "from", "it's", "me", "where"]
 
-top_tweets = df_tweet_top_10.select('name', 'year', 'rating', 'review_url').collect()
+@st.cache_resource
+def tweet(_df_genre_movies):
+    
+    df_tweet = df_genre_movies.groupBy('name', 'year', 'rating', 'review_url').agg(count('*'))\
+                                .select('name', 'year', 'rating', 'review_url')
+    df_tweet_top_10 = df_tweet.orderBy(desc('rating')).limit(10)
+    df_tweet_top_10.show()
 
-df_top_review = None
+    top_tweets = df_tweet_top_10.select('name', 'year', 'rating', 'review_url').collect()
 
-for tweet in top_tweets:
-    url = tweet['review_url']
-    text = get_review_from_url(url)
-    text = [word for word in text if word not in englishStopWords]
-    top_word_dic = {}
-    top_word_list = []
+    df_top_review = None
 
-    for word in text:
-        if word in top_word_list:
-            top_word_dic[word] += 1
+    for tweet in top_tweets:
+        url = tweet['review_url']
+        text = get_review_from_url(url)
+        text = [word for word in text if word not in englishStopWords]
+        top_word_dic = {}
+        top_word_list = []
+
+        for word in text:
+            if word in top_word_list:
+                top_word_dic[word] += 1
+            else:
+                top_word_dic[word] = 1
+                top_word_list.append(word)
+
+        # Ordinare il dizionario filtrato per valori in ordine decrescente
+        top_word_dic_ordinato = dict(sorted(top_word_dic.items(), key=lambda x: x[1], reverse=True))
+        top_five_words = dict(list(top_word_dic_ordinato.items())[:5])
+
+        # Crea un DataFrame Spark con una colonna di tipo MapType
+        df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
+                                    tweet['rating'], top_five_words,)],
+                                ['name', 'year', 'rating', "top_words"])
+
+        if df_top_review is None:
+            df_top_review = df_temp
         else:
-            top_word_dic[word] = 1
-            top_word_list.append(word)
+            df_top_review = df_top_review.union(df_temp)
 
-    # Ordinare il dizionario filtrato per valori in ordine decrescente
-    top_word_dic_ordinato = dict(sorted(top_word_dic.items(), key=lambda x: x[1], reverse=True))
-    top_five_words = dict(list(top_word_dic_ordinato.items())[:5])
+    return df_top_review, df_tweet
 
-    # Crea un DataFrame Spark con una colonna di tipo MapType
-    df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
-                                 tweet['rating'], top_five_words,)],
-                               ['name', 'year', 'rating', "top_words"])
+df_top_review, df_tweet = tweet(df_genre_movies)
 
-    if df_top_review is None:
-        df_top_review = df_temp
-    else:
-        df_top_review = df_top_review.union(df_temp)
+if lista_select[14]:
+    left_line9.header("$\color{yellow}\\bold{Film}$ $\color{yellow}\\bold{Top}$ $\color{yellow}\\bold{Tweet}$")
+    left_line9.dataframe(df_top_review)
 
-# Mostra il DataFrame
-df_top_review.show(truncate=False)
 
 
 ## COMMENTI FLOP 10 ## 
+@st.cache_resource
+def tweet(df_tweet):
+        
+    df_tweet_flop_10 = df_tweet.orderBy(('rating')).limit(10)
+    df_tweet_flop_10.show()
 
-df_tweet_flop_10 = df_tweet.orderBy(('rating')).limit(10)
-df_tweet_flop_10.show()
+    flop_tweets = df_tweet_flop_10.select('name', 'year', 'rating', 'review_url').collect()
 
-flop_tweets = df_tweet_flop_10.select('name', 'year', 'rating', 'review_url').collect()
+    df_flop_review = None
 
-df_flop_review = None
+    for tweet in flop_tweets:
+        url = tweet['review_url']
+        text = get_review_from_url(url)
+        text = [word for word in text if word not in englishStopWords]
+        flop_word_dic = {}
+        flop_word_list = []
 
-for tweet in flop_tweets:
-    url = tweet['review_url']
-    text = get_review_from_url(url)
-    text = [word for word in text if word not in englishStopWords]
-    flop_word_dic = {}
-    flop_word_list = []
+        for word in text:
+            if word in flop_word_list:
+                flop_word_dic[word] += 1
+            else:
+                flop_word_dic[word] = 1
+                flop_word_list.append(word)
 
-    for word in text:
-        if word in flop_word_list:
-            flop_word_dic[word] += 1
+        # Ordinare il dizionario filtrato per valori in ordine decrescente
+        flop_word_dic_ordinato = dict(sorted(flop_word_dic.items(), key=lambda x: x[1], reverse=True))
+        flop_five_words = dict(list(flop_word_dic_ordinato.items())[:5])
+
+        # Crea un DataFrame Spark con una colonna di tipo MapType
+        df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
+                                    tweet['rating'], flop_five_words,)],
+                                ['name', 'year', 'rating', "top_words"])
+
+        if df_flop_review is None:
+            df_flop_review = df_temp
         else:
-            flop_word_dic[word] = 1
-            flop_word_list.append(word)
+            df_flop_review = df_flop_review.union(df_temp)
 
-    # Ordinare il dizionario filtrato per valori in ordine decrescente
-    flop_word_dic_ordinato = dict(sorted(flop_word_dic.items(), key=lambda x: x[1], reverse=True))
-    flop_five_words = dict(list(flop_word_dic_ordinato.items())[:5])
+    return df_flop_review
 
-    # Crea un DataFrame Spark con una colonna di tipo MapType
-    df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
-                                 tweet['rating'], flop_five_words,)],
-                               ['name', 'year', 'rating', "top_words"])
+df_top_review = tweet(df_tweet)
 
-    if df_flop_review is None:
-        df_flop_review = df_temp
-    else:
-        df_flop_review = df_flop_review.union(df_temp)
+if lista_select[14]:
+    right_line9.header("$\color{yellow}\\bold{Film}$ $\color{yellow}\\bold{Top}$ $\color{yellow}\\bold{Tweet}$")
+    right_line9.dataframe(df_top_review)
 
-# Mostra il DataFrame
-df_flop_review.show(truncate=False)
+
+
+
+
+
+
+
+
