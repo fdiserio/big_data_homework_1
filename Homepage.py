@@ -262,7 +262,7 @@ def common_film(_df_imdb_movies, _df_genre_movies):
 df_common_movies = common_film(df_imdb_movies, df_genre_movies)
 
 if lista_select[0]:
-    left_query1.header("$\color{black}\\bold{Common}$ $\color{black}\\bold{Film}$")
+    left_query1.header("$\\bold{Common}$ $\\bold{Film}$")
     left_query1.dataframe(df_common_movies, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
         })
@@ -277,7 +277,7 @@ def all_film(_df_imdb_movies, _df_genre_movies):
 df_all_movies = all_film(df_imdb_movies, df_genre_movies)
 
 if lista_select[1]:
-    right_query1.header("$\color{black}\\bold{All}$ $\color{black}\\bold{Film}$")
+    right_query1.header("$\\bold{All}$ $\\bold{Film}$")
     right_query1.dataframe(df_all_movies, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
         })
@@ -315,7 +315,7 @@ def best_film(_df_imdb_movies, _df_genre_movies):
 top_10, df_all_movies_voted = best_film(df_imdb_movies, df_genre_movies)
 
 if lista_select[2]:
-    left_query2.header("$\color{black}\\bold{TOP}$ $\color{black}\\bold{10}$")
+    left_query2.header("$\\bold{TOP}$ $\\bold{10}$")
     left_query2.dataframe(top_10, use_container_width=True, hide_index=True, column_config={
         "rating": st.column_config.ProgressColumn(
             min_value=0,
@@ -335,7 +335,7 @@ def flop_film(_df_all_movies_voted):
 flop_10 = flop_film(df_all_movies_voted)
 
 if lista_select[3]:
-    right_query2.header("$\color{black}\\bold{FLOP}$ $\color{black}\\bold{10}$")
+    right_query2.header("$\\bold{FLOP}$ $\\bold{10}$")
     right_query2.dataframe(flop_10, use_container_width=True, hide_index=True, column_config={
         "rating": st.column_config.ProgressColumn(
             min_value=0,
@@ -379,7 +379,7 @@ def most_voted_film(_df_imdb_movies, _df_genre_movies, _df_all_movies):
 most_voted, df_voters = most_voted_film(df_imdb_movies, df_genre_movies, df_all_movies)
    
 if lista_select[4]:
-    left_line3.header("$\color{black}\\bold{Most}$ $\color{black}\\bold{Voted}$")
+    left_line3.header("$\\bold{Most}$ $\\bold{Voted}$")
     left_line3.dataframe(most_voted, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
         "voters": st.column_config.NumberColumn(format="%d")
@@ -401,7 +401,7 @@ def most_reviewed_film(_df_genre_movies):
 most_reviewed = most_reviewed_film(df_genre_movies)
 
 if lista_select[5]:
-    right_line3.header("$\color{black}\\bold{Most}$ $\color{black}\\bold{Reviewed}$")
+    right_line3.header("$\\bold{Most}$ $\\bold{Reviewed}$")
     right_line3.dataframe(most_reviewed, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
         "avg(num_reviews)": st.column_config.NumberColumn("reviews", format="%d")
@@ -412,7 +412,7 @@ left_line4, right_line4 = st.columns(2)
 
 ## FILM PER GENERE ##
 @st.cache_resource
-def film_x_genre(_df_imdb_movies, _df_genre_movies):
+def film_x_genre(_df_imdb_movies, _df_genre_movies, _spark):
 
     df_imdb_exploded = df_imdb_movies.withColumn("genre", explode("genre"))
 
@@ -438,16 +438,15 @@ def film_x_genre(_df_imdb_movies, _df_genre_movies):
         genre_genre = df_diff.filter(array_contains(col("genres"), elem))\
                                     .select('name','year','genres').count()
         film_x_genre[elem] += genre_genre
-        
-    # Trasforma il dizionario in un DataFrame PySpark
-    df_film_x_genre = spark.createDataFrame(list(film_x_genre.items()), ["genre", "number_of_films"])
 
-    return df_film_x_genre, df_diff, df_imdb_exploded
+    df = pd.DataFrame(list(film_x_genre.items()), columns=['genre', 'number_of_films'])
 
-film_x_genre, df_diff, df_imdb_exploded = film_x_genre(df_imdb_movies, df_genre_movies)
+    return df, df_diff, df_imdb_exploded
+
+film_x_genre, df_diff, df_imdb_exploded = film_x_genre(df_imdb_movies, df_genre_movies, spark)
 
 if lista_select[6]:
-    left_line4.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Genre}$")
+    left_line4.header("$\\bold{Film}$ $\\bold{x}$ $\\bold{Genre}$")
     left_line4.dataframe(film_x_genre, hide_index=True, column_config={
         "number_of_films": st.column_config.NumberColumn(format="%d")
         })
@@ -478,7 +477,7 @@ def mean_genre(_df_diff, _df_imdb_exploded):
 df_mean_genre_with_count = mean_genre(df_diff, df_imdb_exploded)
 
 if lista_select[7]:
-    right_line4.header("$\color{black}\\bold{Votes}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Genre}$")
+    right_line4.header("$\\bold{Votes}$ $\\bold{x}$ $\\bold{Genre}$")
     right_line4.dataframe(df_mean_genre_with_count, hide_index=True, column_config={
         "rating": st.column_config.ProgressColumn(
             min_value=0,
@@ -503,8 +502,8 @@ def mean_time(_df_genre_movies):
 df_time = mean_time(df_genre_movies)
 
 if lista_select[8]:
-    left_line5.header("$\color{black}\\bold{Mean}$ $\color{black}\\bold{Time}$ \
-                      $\color{black}\\bold{x}$ $\color{black}\\bold{Film}$")
+    left_line5.header("$\\bold{Mean}$ $\\bold{Time}$ \
+                      $\\bold{x}$ $\\bold{Film}$")
     left_line5.dataframe(df_time, hide_index=True)
 
 
@@ -526,8 +525,8 @@ def mean_time_genre(_df_genre_movies):
 df_time_genre = mean_time_genre(df_genre_movies)
 
 if lista_select[9]:
-    right_line5.header("$\color{black}\\bold{Mean}$ $\color{black}\\bold{Time}$ \
-                        $\color{black}\\bold{x}$ $\color{black}\\bold{Genre}$")
+    right_line5.header("$\\bold{Mean}$ $\\bold{Time}$ \
+                        $\\bold{x}$ $\\bold{Genre}$")
     right_line5.dataframe(df_time_genre, hide_index=True)
 
 
@@ -547,7 +546,7 @@ def rating_ponderato(_df_all_movies_voted, _df_voters):
 best_movies = rating_ponderato(df_all_movies_voted, df_voters)
 
 if lista_select[10]:
-    st.header("$\color{black}\\bold{Weighted}$ $\color{black}\\bold{Rating}$")
+    st.header("$\\bold{Weighted}$ $\\bold{Rating}$")
     st.dataframe(best_movies, use_container_width=True, hide_index=True, column_config={
         "rating": st.column_config.ProgressColumn(
             min_value=0,
@@ -586,7 +585,7 @@ def top_decennio(_df_all_movies_voted):
 df_year = top_decennio(df_all_movies_voted)
 
 if lista_select[11]:
-    st.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Decade}$")
+    st.header("$\\bold{Film}$ $\\bold{x}$ $\\bold{Decade}$")
    
     left_line_6, right_line_6 = st.columns(2)
     left_line_6.dataframe(df_year[0], use_container_width=True, hide_index=True, column_config={
@@ -628,13 +627,13 @@ df_10_max, df_10_mean = top_10_decennio(df_all_movies_voted)
 left_line7, right_line7 = st.columns(2)
 
 if lista_select[12]:
-    left_line7.header("$\color{black}\\bold{TOP}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Decade}$")
+    left_line7.header("$\\bold{TOP}$ $\\bold{x}$ $\\bold{Decade}$")
     left_line7.dataframe(df_10_max, hide_index=True, column_config={
             "decennio": st.column_config.NumberColumn(format="%d")
     })
 
 if lista_select[13]:
-    right_line7.header("$\color{black}\\bold{MEAN}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Decade}$")
+    right_line7.header("$\\bold{MEAN}$ $\\bold{x}$ $\\bold{Decade}$")
     right_line7.dataframe(df_10_mean, hide_index=True, column_config={
             "decennio": st.column_config.NumberColumn(format="%d")
         })
@@ -659,7 +658,7 @@ def actors(_df_imdb_movies):
 df_stars, df_actors, df_imdb_exploded_actors = actors(df_imdb_movies)
 
 if lista_select[14]:
-    left_line8.header("$\color{black}\\bold{Stars}$")
+    left_line8.header("$\\bold{Stars}$")
     left_line8.dataframe(df_stars, hide_index=True, column_config={
         "movies_number": st.column_config.NumberColumn(format="%d ⭐")
     })
@@ -686,7 +685,7 @@ def star_x_film(_top_10, _df_imdb_exploded_actors, _df_actors):
 df_stars_film = star_x_film(top_10, df_imdb_exploded_actors, df_actors)
 
 if lista_select[15]:
-    right_line8.header("$\color{black}\\bold{Stars}$ $\color{black}\\bold{Most}$ $\color{black}\\bold{Film}$")
+    right_line8.header("$\\bold{Stars}$ $\\bold{Most}$ $\\bold{Film}$")
     right_line8.dataframe(df_stars_film, hide_index=True)
 
 
@@ -705,7 +704,7 @@ def actor_director(_df_imdb_movies):
 df_couple = actor_director(df_imdb_movies)
 
 if lista_select[16]:
-    st.header("$\color{black}\\bold{Actor}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Director}$")
+    st.header("$\\bold{Actor}$ $\\bold{x}$ $\\bold{Director}$")
     st.dataframe(df_couple, hide_index=True)
 
 
@@ -747,7 +746,7 @@ englishStopWords = ["and", "to", "the", "into", "on", "of", "by", "or", "in", "a
                 "from", "it's", "me", "where"]
 
 @st.cache_resource
-def top_tweet(_df_genre_movies):
+def top_tweet(_df_genre_movies, _spark):
     
     df_tweet = df_genre_movies.groupBy('name', 'year', 'rating', 'review_url').agg(count('*'))\
                                 .select('name', 'year', 'rating', 'review_url')
@@ -776,22 +775,21 @@ def top_tweet(_df_genre_movies):
         top_word_dic_ordinato = dict(sorted(top_word_dic.items(), key=lambda x: x[1], reverse=True))
         top_five_words = dict(list(top_word_dic_ordinato.items())[:5])
 
-        # Crea un DataFrame Spark con una colonna di tipo MapType
-        df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
-                                    tweet['rating'], top_five_words,)],
-                                ['name', 'year', 'rating', "top_words"])
+        # Crea un DataFrame Panda 
+        df_temp = pd.DataFrame([(tweet['name'], tweet['year'], tweet['rating'], top_five_words)], 
+                               columns=['name', 'year', 'rating', "top_words"])
 
         if df_top_review is None:
             df_top_review = df_temp
         else:
-            df_top_review = df_top_review.union(df_temp)
+            df_top_review = pd.concat([df_top_review, df_temp], ignore_index=True)
 
     return df_top_review, df_tweet
 
-df_top_review, df_tweet = top_tweet(df_genre_movies)
+df_top_review, df_tweet = top_tweet(df_genre_movies, spark)
 
 if lista_select[17]:
-    left_line9.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{Top}$ $\color{black}\\bold{Tweet}$")
+    left_line9.header("$\\bold{Film}$ $\\bold{Top}$ $\\bold{Tweet}$")
     left_line9.dataframe(df_top_review, hide_index=True, column_config={
             "year": st.column_config.NumberColumn(format="%d")
         })
@@ -799,7 +797,7 @@ if lista_select[17]:
 
 ## COMMENTI FLOP 10 ## 
 @st.cache_resource
-def flop_tweet(_df_tweet):
+def flop_tweet(_df_tweet, _spark):
         
     df_tweet_flop_10 = df_tweet.orderBy(('rating')).limit(10)
 
@@ -825,22 +823,21 @@ def flop_tweet(_df_tweet):
         flop_word_dic_ordinato = dict(sorted(flop_word_dic.items(), key=lambda x: x[1], reverse=True))
         flop_five_words = dict(list(flop_word_dic_ordinato.items())[:5])
 
-        # Crea un DataFrame Spark con una colonna di tipo MapType
-        df_temp = spark.createDataFrame([(tweet['name'], tweet['year'],
-                                    tweet['rating'], flop_five_words,)],
-                                ['name', 'year', 'rating', "top_words"])
+        # Crea un DataFrame Panda 
+        df_temp = pd.DataFrame([(tweet['name'], tweet['year'], tweet['rating'], flop_five_words)], 
+                               columns=['name', 'year', 'rating', "flop_words"])
 
         if df_flop_review is None:
             df_flop_review = df_temp
         else:
-            df_flop_review = df_flop_review.union(df_temp)
+            df_flop_review = pd.concat([df_flop_review, df_temp], ignore_index=True)
 
     return df_flop_review
 
-df_flop_review = flop_tweet(df_tweet)
+df_flop_review = flop_tweet(df_tweet, spark)
 
 if lista_select[18]:
-    right_line9.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{Flop}$ $\color{black}\\bold{Tweet}$")
+    right_line9.header("$\\bold{Film}$ $\\bold{Flop}$ $\\bold{Tweet}$")
     right_line9.dataframe(df_flop_review, hide_index=True, column_config={
             "year": st.column_config.NumberColumn(format="%d")
         })
