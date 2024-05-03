@@ -1,6 +1,6 @@
 # big_data_homework_1
 
-Il seguente progetto riporta un'analisi dettagliata di due dataset cinematrografici:
+Il seguente progetto riporta un'analisi dettagliata di due dataset cinematrografici, su cui sono state effettuate le seguenti query:
 1. Film Comuni
 2. Tutti i Film
 3. TOP 10

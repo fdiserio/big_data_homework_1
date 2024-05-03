@@ -88,8 +88,6 @@ def imdb_dataset(_spark):
                         .option("header", "true") \
                         .csv(imdb_path_2)
 
-    #df_imdb_movies.printSchema()
-
     # Lista delle colonne da convertire e il relativo tipo di dato
     columns_to_convert = {
         "year": "integer",
@@ -122,7 +120,16 @@ df_imdb_movies = imdb_dataset(spark)
 
 # Visualizza il dataset
 if left_check:
-    left_column.dataframe(df_imdb_movies)
+    left_column.dataframe(df_imdb_movies, hide_index=True, column_config={
+        "year": st.column_config.NumberColumn(format="%d"),
+        "votes": st.column_config.NumberColumn(format="%d"),
+        "rating": st.column_config.ProgressColumn(
+            "Rating",
+            min_value=0,
+            max_value=10,  
+            format="%.1f"
+        )
+        })
 
 
 ### GENRE DATASET ###
@@ -148,9 +155,6 @@ def genre_dataset(_spark):
         else:
             df_genre_movies = df_genre_movies.union(df)
 
-    # Verifica lo schema del DataFrame combinato
-    #df_genre_movies.printSchema()
-
     # Converti durata in minuti per leggerlo come int
     hours = regexp_extract(col("run_length"), r"(\d+)h", 1).cast("int")  # Estrae le ore
     minutes = regexp_extract(col("run_length"), r"(\d+)min", 1).cast("int")  # Estrae i minuti
@@ -167,26 +171,33 @@ def genre_dataset(_spark):
     # Elimina film ripetuti
     df_genre_movies = df_genre_movies.distinct()
 
-    # Verifica lo schema aggiornato
-    #df_genre_movies.printSchema()
-
     return df_genre_movies
 
 df_genre_movies = genre_dataset(spark)
 
 # Visualizza il dataset
 if right_check:
-    right_column.dataframe(df_genre_movies)
+    right_column.dataframe(df_genre_movies, hide_index=True, column_config={
+        "year": st.column_config.NumberColumn(format="%d"),
+        "num_raters": st.column_config.NumberColumn(format="%d"),
+        "num_reviews": st.column_config.NumberColumn(format="%d"),
+        "review_url": st.column_config.LinkColumn(),
+        "rating": st.column_config.ProgressColumn(
+            "Rating",
+            min_value=0,
+            max_value=10,  
+            format="%f",
+        )
+    })
 
 
 ### OPERATIONS ###
 # Menu' di Checkbox
-
 with st.sidebar:
 
     spazio = st.columns(3)
-    spazio[1].header("$\color{yellow}\\bold{QUERY}$")
-    spazio[1].title(":rainbow[QUERY]")
+    spazio[1].header("$\color{red}\\bf{QUERY}$")
+    st.subheader("",divider="rainbow")
 
     left_column_query, right_column_query = st.columns(2)
 
@@ -202,13 +213,13 @@ with st.sidebar:
         "Media Voti per genere",
         "Durata Media di un Film",
         "Durata Media di un Film per genere",
-        "Rating Ponderato",     # SOLO
-        "Top film per cadenza decennale",   # SOLO
+        "Rating Ponderato",     
+        "Top film per cadenza decennale",   
         "Top Decennio",
         "Mean Decennio",
         "Attori in più film",
         "Attori più presenti nei film migliori",
-        "Attori e Registri con più collaborazioni",     # SOLO
+        "Attori e Registri con più collaborazioni",     
         "Parole più ricorrenti nei commenti della Top 10",
         "Parole più ricorrenti nei commenti della Flop 10"
     ]
@@ -235,7 +246,7 @@ with st.sidebar:
     lista_select[17] = left_column_query.checkbox(queries[17])
     lista_select[18] = right_column_query.checkbox(queries[18])
 
-
+st.subheader("",divider="rainbow")
 
 left_query1, right_query1 = st.columns(2)
 
@@ -251,8 +262,10 @@ def common_film(_df_imdb_movies, _df_genre_movies):
 df_common_movies = common_film(df_imdb_movies, df_genre_movies)
 
 if lista_select[0]:
-    left_query1.header("$\color{lightblue}\\bold{Common}$ $\color{lightblue}\\bold{Film}$")
-    left_query1.dataframe(df_common_movies)
+    left_query1.header("$\color{black}\\bold{Common}$ $\color{black}\\bold{Film}$")
+    left_query1.dataframe(df_common_movies, hide_index=True, column_config={
+        "year": st.column_config.NumberColumn(format="%d"),
+        })
 
 
 ## TUTTI I FILM ##
@@ -264,8 +277,10 @@ def all_film(_df_imdb_movies, _df_genre_movies):
 df_all_movies = all_film(df_imdb_movies, df_genre_movies)
 
 if lista_select[1]:
-    right_query1.header("$\color{lightblue}\\bold{All}$ $\color{lightblue}\\bold{Film}$")
-    right_query1.dataframe(df_all_movies)
+    right_query1.header("$\color{black}\\bold{All}$ $\color{black}\\bold{Film}$")
+    right_query1.dataframe(df_all_movies, hide_index=True, column_config={
+        "year": st.column_config.NumberColumn(format="%d"),
+        })
 
 
 left_query2, right_query2 = st.columns(2)
@@ -300,8 +315,15 @@ def best_film(_df_imdb_movies, _df_genre_movies):
 top_10, df_all_movies_voted = best_film(df_imdb_movies, df_genre_movies)
 
 if lista_select[2]:
-    left_query2.header("$\color{cyan}\\bold{TOP}$ $\color{cyan}\\bold{10}$")
-    left_query2.dataframe(top_10)
+    left_query2.header("$\color{black}\\bold{TOP}$ $\color{black}\\bold{10}$")
+    left_query2.dataframe(top_10, use_container_width=True, hide_index=True, column_config={
+        "rating": st.column_config.ProgressColumn(
+            min_value=0,
+            max_value=10,  
+            format="%f",
+        ),
+        "year": st.column_config.NumberColumn(format="%d")
+    })
 
 
 ## FILM PEGGIORI ##
@@ -313,11 +335,16 @@ def flop_film(_df_all_movies_voted):
 flop_10 = flop_film(df_all_movies_voted)
 
 if lista_select[3]:
-    right_query2.header("$\color{cyan}\\bold{FLOP}$ $\color{cyan}\\bold{10}$")
-    right_query2.dataframe(flop_10)
-
-
-
+    right_query2.header("$\color{black}\\bold{FLOP}$ $\color{black}\\bold{10}$")
+    right_query2.dataframe(flop_10, use_container_width=True, hide_index=True, column_config={
+        "rating": st.column_config.ProgressColumn(
+            min_value=0,
+            max_value=10,  
+            format="%f",
+        ),
+        "year": st.column_config.NumberColumn(format="%d")
+    })
+    
 
 left_line3, right_line3 = st.columns(2)
 
@@ -352,8 +379,11 @@ def most_voted_film(_df_imdb_movies, _df_genre_movies, _df_all_movies):
 most_voted, df_voters = most_voted_film(df_imdb_movies, df_genre_movies, df_all_movies)
    
 if lista_select[4]:
-    left_line3.header("$\color{lightgreen}\\bold{Most}$ $\color{lightgreen}\\bold{Voted}$")
-    left_line3.dataframe(most_voted)
+    left_line3.header("$\color{black}\\bold{Most}$ $\color{black}\\bold{Voted}$")
+    left_line3.dataframe(most_voted, hide_index=True, column_config={
+        "year": st.column_config.NumberColumn(format="%d"),
+        "voters": st.column_config.NumberColumn(format="%d")
+    })
 
 
 ## FILM RECENSITO DA PIU' UTENTI ##
@@ -371,9 +401,11 @@ def most_reviewed_film(_df_genre_movies):
 most_reviewed = most_reviewed_film(df_genre_movies)
 
 if lista_select[5]:
-    right_line3.header("$\color{lightgreen}\\bold{Most}$ $\color{lightgreen}\\bold{Reviewed}$")
-    right_line3.dataframe(most_voted)
-
+    right_line3.header("$\color{black}\\bold{Most}$ $\color{black}\\bold{Reviewed}$")
+    right_line3.dataframe(most_reviewed, hide_index=True, column_config={
+        "year": st.column_config.NumberColumn(format="%d"),
+        "avg(num_reviews)": st.column_config.NumberColumn("reviews", format="%d")
+    })
 
 
 left_line4, right_line4 = st.columns(2)
@@ -406,14 +438,19 @@ def film_x_genre(_df_imdb_movies, _df_genre_movies):
         genre_genre = df_diff.filter(array_contains(col("genres"), elem))\
                                     .select('name','year','genres').count()
         film_x_genre[elem] += genre_genre
+        
+    # Trasforma il dizionario in un DataFrame PySpark
+    df_film_x_genre = spark.createDataFrame(list(film_x_genre.items()), ["genre", "number_of_films"])
 
-    return film_x_genre, df_diff, df_imdb_exploded
+    return df_film_x_genre, df_diff, df_imdb_exploded
 
 film_x_genre, df_diff, df_imdb_exploded = film_x_genre(df_imdb_movies, df_genre_movies)
 
 if lista_select[6]:
-    left_line4.header("$\color{lime}\\bold{Film}$ $\color{lime}\\bold{x}$ $\color{lime}\\bold{Genere}$")
-    left_line4.table(film_x_genre)
+    left_line4.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Genre}$")
+    left_line4.dataframe(film_x_genre, hide_index=True, column_config={
+        "number_of_films": st.column_config.NumberColumn(format="%d")
+        })
 
 
 ## MEDIA VOTI PER GENERE ##
@@ -441,9 +478,15 @@ def mean_genre(_df_diff, _df_imdb_exploded):
 df_mean_genre_with_count = mean_genre(df_diff, df_imdb_exploded)
 
 if lista_select[7]:
-    right_line4.header("$\color{lime}\\bold{Voti}$ $\color{lime}\\bold{x}$ $\color{lime}\\bold{Genere}$")
-    right_line4.dataframe(df_mean_genre_with_count, use_container_width=True)
-
+    right_line4.header("$\color{black}\\bold{Votes}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Genre}$")
+    right_line4.dataframe(df_mean_genre_with_count, hide_index=True, column_config={
+        "rating": st.column_config.ProgressColumn(
+            min_value=0,
+            max_value=10,  
+            format="%f",
+        ),
+        "film_count": st.column_config.NumberColumn(format="%d")
+    })
 
 
 left_line5, right_line5 = st.columns(2)
@@ -460,8 +503,9 @@ def mean_time(_df_genre_movies):
 df_time = mean_time(df_genre_movies)
 
 if lista_select[8]:
-    left_line5.header("$\color{orange}\\bold{Mean}$ $\color{orange}\\bold{Timex}$ $\color{orange}\\bold{Film}$")
-    left_line5.dataframe(df_time)
+    left_line5.header("$\color{black}\\bold{Mean}$ $\color{black}\\bold{Time}$ \
+                      $\color{black}\\bold{x}$ $\color{black}\\bold{Film}$")
+    left_line5.dataframe(df_time, hide_index=True)
 
 
 ## DURATA MEDIA PER GENERE ##
@@ -482,9 +526,9 @@ def mean_time_genre(_df_genre_movies):
 df_time_genre = mean_time_genre(df_genre_movies)
 
 if lista_select[9]:
-    right_line5.header("$\color{orange}\\bold{Mean}$ $\color{orange}\\bold{TimexGenre}$")
-    right_line5.dataframe(df_time_genre, use_container_width=True)
-
+    right_line5.header("$\color{black}\\bold{Mean}$ $\color{black}\\bold{Time}$ \
+                        $\color{black}\\bold{x}$ $\color{black}\\bold{Genre}$")
+    right_line5.dataframe(df_time_genre, hide_index=True)
 
 
 ## RATING PONDERATO ##
@@ -503,9 +547,29 @@ def rating_ponderato(_df_all_movies_voted, _df_voters):
 best_movies = rating_ponderato(df_all_movies_voted, df_voters)
 
 if lista_select[10]:
-    st.header("$\color{magenta}\\bold{Rating}$ $\color{magenta}\\bold{Ponderato}$")
-    st.dataframe(best_movies)
-
+    st.header("$\color{black}\\bold{Weighted}$ $\color{black}\\bold{Rating}$")
+    st.dataframe(best_movies, use_container_width=True, hide_index=True, column_config={
+        "rating": st.column_config.ProgressColumn(
+            min_value=0,
+            max_value=10,  
+            format="%f",
+        ),
+        "voters": st.column_config.NumberColumn(format="%d"),
+        "year": st.column_config.NumberColumn(format="%d")
+    })
+    
+    st.write("""
+            ### Nota:
+            Il rating ponderato è una metrica che tiene conto sia del rating di un film che del numero di voti ricevuti.
+            La formula usata è la seguente:
+        
+            `weighted_rating = rating * log10(voters)`
+        
+            Dove:
+            - `rating` è il rating del film
+            - `voters` è il numero di voti ricevuti
+            - `log10` è il logaritmo in base 10
+            """)    
 
 
 ## TOP FILM PER CADENZA DECENNALE ##
@@ -522,16 +586,24 @@ def top_decennio(_df_all_movies_voted):
 df_year = top_decennio(df_all_movies_voted)
 
 if lista_select[11]:
-    st.header("$\color{violet}\\bold{Film}$ $\color{violet}\\bold{x}$ $\color{violet}\\bold{Decennio}$")
+    st.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Decade}$")
    
     left_line_6, right_line_6 = st.columns(2)
-    left_line_6.dataframe(df_year[0], use_container_width=True)
-    right_line_6.dataframe(df_year[1], use_container_width=True)
+    left_line_6.dataframe(df_year[0], use_container_width=True, hide_index=True, column_config={
+            "year": st.column_config.NumberColumn(format="%d")
+        })
+    right_line_6.dataframe(df_year[1], use_container_width=True, hide_index=True, column_config={
+            "year": st.column_config.NumberColumn(format="%d")
+        })
 
     left_line6, right_line6 = st.columns(2)
     for i in range(2,len(df_year),2):
-        left_line6.dataframe(df_year[i], use_container_width=True)
-        right_line6.dataframe(df_year[i+1], use_container_width=True)
+        left_line6.dataframe(df_year[i], use_container_width=True, hide_index=True, column_config={
+            "year": st.column_config.NumberColumn(format="%d")
+        })
+        right_line6.dataframe(df_year[i+1], use_container_width=True, hide_index=True, column_config={
+            "year": st.column_config.NumberColumn(format="%d")
+        })
 
 
 ## QUALE DECENNIO HA DATO I FILM MIGLIORI MEDIAMENTE E IN ASSOLUTO ##
@@ -544,7 +616,6 @@ def top_10_decennio(_df_all_movies_voted):
     df_10_mean = df_10.groupBy('decennio').avg('rating')
     df_10_mean = df_10_mean.withColumn('rating', round(col('avg(rating)'), 1)).select('decennio', 'rating')
     df_10_mean = df_10_mean.orderBy(desc('rating'))
-    df_10_mean.show()
 
     df_10_max = df_10.groupBy('decennio').max('rating')
     df_10_max = df_10_max.withColumn('rating', round(col('max(rating)'), 1)).select('decennio', 'rating')
@@ -557,13 +628,16 @@ df_10_max, df_10_mean = top_10_decennio(df_all_movies_voted)
 left_line7, right_line7 = st.columns(2)
 
 if lista_select[12]:
-    left_line7.header("$\color{pink}\\bold{TOP}$ $\color{pink}\\bold{x}$ $\color{pink}\\bold{Decennio}$")
-    left_line7.dataframe(df_10_max, use_container_width=True)
+    left_line7.header("$\color{black}\\bold{TOP}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Decade}$")
+    left_line7.dataframe(df_10_max, hide_index=True, column_config={
+            "decennio": st.column_config.NumberColumn(format="%d")
+    })
 
 if lista_select[13]:
-    right_line7.header("$\color{pink}\\bold{MEAN}$ $\color{pink}\\bold{x}$ $\color{pink}\\bold{Decennio}$")
-    right_line7.dataframe(df_10_mean, use_container_width=True)
-
+    right_line7.header("$\color{black}\\bold{MEAN}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Decade}$")
+    right_line7.dataframe(df_10_mean, hide_index=True, column_config={
+            "decennio": st.column_config.NumberColumn(format="%d")
+        })
 
 
 left_line8, right_line8 = st.columns(2)
@@ -585,8 +659,10 @@ def actors(_df_imdb_movies):
 df_stars, df_actors, df_imdb_exploded_actors = actors(df_imdb_movies)
 
 if lista_select[14]:
-    left_line8.header("$\color{yellow}\\bold{Stars}$")
-    left_line8.dataframe(df_stars)
+    left_line8.header("$\color{black}\\bold{Stars}$")
+    left_line8.dataframe(df_stars, hide_index=True, column_config={
+        "movies_number": st.column_config.NumberColumn(format="%d ⭐")
+    })
 
 
 ## ATTORI PIU' PRESENTI CHE HANNO FATTO I FILM PIU' APPREZZATI ##
@@ -605,15 +681,13 @@ def star_x_film(_top_10, _df_imdb_exploded_actors, _df_actors):
 
     df_film_stars = df_most_appreciated.orderBy(desc("movies_number")).limit(10)
 
-    return df_time_genre
+    return df_film_stars
 
 df_stars_film = star_x_film(top_10, df_imdb_exploded_actors, df_actors)
 
-if lista_select[14]:
-    right_line8.header("$\color{yellow}\\bold{Stars}$ $\color{yellow}\\bold{Most}$ $\color{yellow}\\bold{Film}$")
-    right_line8.dataframe(df_stars_film)
-
-
+if lista_select[15]:
+    right_line8.header("$\color{black}\\bold{Stars}$ $\color{black}\\bold{Most}$ $\color{black}\\bold{Film}$")
+    right_line8.dataframe(df_stars_film, hide_index=True)
 
 
 ## ATTORI E REGISTI CON PIU' COLLABORAZIONI ##
@@ -630,18 +704,16 @@ def actor_director(_df_imdb_movies):
 
 df_couple = actor_director(df_imdb_movies)
 
-if lista_select[15]:
-    st.header("$\color{hardviolet}\\bold{Actor}$ $\color{violet}\\bold{x}$ $\color{violet}\\bold{Director}$")
-    st.dataframe(df_couple)
-
-
+if lista_select[16]:
+    st.header("$\color{black}\\bold{Actor}$ $\color{black}\\bold{x}$ $\color{black}\\bold{Director}$")
+    st.dataframe(df_couple, hide_index=True)
 
 
 left_line9, right_line9 = st.columns(2)
 
 ## COMMENTI TOP 10 ##
-@st.cache_resource
 # Funzione per recuperare la recensione da un URL
+@st.cache_data
 def get_review_from_url(url):
     reviews = []
     try:
@@ -675,12 +747,12 @@ englishStopWords = ["and", "to", "the", "into", "on", "of", "by", "or", "in", "a
                 "from", "it's", "me", "where"]
 
 @st.cache_resource
-def tweet(_df_genre_movies):
+def top_tweet(_df_genre_movies):
     
     df_tweet = df_genre_movies.groupBy('name', 'year', 'rating', 'review_url').agg(count('*'))\
                                 .select('name', 'year', 'rating', 'review_url')
+    
     df_tweet_top_10 = df_tweet.orderBy(desc('rating')).limit(10)
-    df_tweet_top_10.show()
 
     top_tweets = df_tweet_top_10.select('name', 'year', 'rating', 'review_url').collect()
 
@@ -716,20 +788,20 @@ def tweet(_df_genre_movies):
 
     return df_top_review, df_tweet
 
-df_top_review, df_tweet = tweet(df_genre_movies)
+df_top_review, df_tweet = top_tweet(df_genre_movies)
 
-if lista_select[14]:
-    left_line9.header("$\color{yellow}\\bold{Film}$ $\color{yellow}\\bold{Top}$ $\color{yellow}\\bold{Tweet}$")
-    left_line9.dataframe(df_top_review)
-
+if lista_select[17]:
+    left_line9.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{Top}$ $\color{black}\\bold{Tweet}$")
+    left_line9.dataframe(df_top_review, hide_index=True, column_config={
+            "year": st.column_config.NumberColumn(format="%d")
+        })
 
 
 ## COMMENTI FLOP 10 ## 
 @st.cache_resource
-def tweet(df_tweet):
+def flop_tweet(_df_tweet):
         
     df_tweet_flop_10 = df_tweet.orderBy(('rating')).limit(10)
-    df_tweet_flop_10.show()
 
     flop_tweets = df_tweet_flop_10.select('name', 'year', 'rating', 'review_url').collect()
 
@@ -765,17 +837,11 @@ def tweet(df_tweet):
 
     return df_flop_review
 
-df_top_review = tweet(df_tweet)
+df_flop_review = flop_tweet(df_tweet)
 
-if lista_select[14]:
-    right_line9.header("$\color{yellow}\\bold{Film}$ $\color{yellow}\\bold{Top}$ $\color{yellow}\\bold{Tweet}$")
-    right_line9.dataframe(df_top_review)
-
-
-
-
-
-
-
-
+if lista_select[18]:
+    right_line9.header("$\color{black}\\bold{Film}$ $\color{black}\\bold{Flop}$ $\color{black}\\bold{Tweet}$")
+    right_line9.dataframe(df_flop_review, hide_index=True, column_config={
+            "year": st.column_config.NumberColumn(format="%d")
+        })
 
