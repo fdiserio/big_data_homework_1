@@ -574,68 +574,49 @@ if lista_select[10]:
 ## TOP FILM PER CADENZA DECENNALE ##
 @st.cache_resource
 def top_decennio(_df_all_movies_voted):
+    df_decade = df_all_movies_voted.withColumn("decade", (floor(col("year") / 10) * 10).cast("int"))
+    k = 5
+    window_spec = Window.partitionBy("decade").orderBy(col("rating").desc())
+    df_top_decade = df_decade[['title','year','rating','decade']].withColumn("row_number", row_number().over(window_spec))
+    df_top_decade = df_top_decade.filter(col("row_number") <= k).drop("row_number").drop("decade")
+    return df_top_decade, df_decade
 
-    df_year = []
-    for year in range(1910, 2030, 10):
-        df_year.append(df_all_movies_voted.filter((col('year')>=year) & (col('year')<(year+10)))\
-                                        .orderBy(desc('rating')).limit(5))
-
-    return df_year
-
-df_year = top_decennio(df_all_movies_voted)
+df_top_decade, df_decade = top_decennio(df_all_movies_voted)
 
 if lista_select[11]:
     st.header("$\\bold{Film}$ $\\bold{x}$ $\\bold{Decade}$")
-   
-    left_line_6, right_line_6 = st.columns(2)
-    left_line_6.dataframe(df_year[0], use_container_width=True, hide_index=True, column_config={
+    st.dataframe(df_top_decade, use_container_width=True, hide_index=True, column_config={
             "year": st.column_config.NumberColumn(format="%d")
         })
-    right_line_6.dataframe(df_year[1], use_container_width=True, hide_index=True, column_config={
-            "year": st.column_config.NumberColumn(format="%d")
-        })
-
-    left_line6, right_line6 = st.columns(2)
-    for i in range(2,len(df_year),2):
-        left_line6.dataframe(df_year[i], use_container_width=True, hide_index=True, column_config={
-            "year": st.column_config.NumberColumn(format="%d")
-        })
-        right_line6.dataframe(df_year[i+1], use_container_width=True, hide_index=True, column_config={
-            "year": st.column_config.NumberColumn(format="%d")
-        })
-
+    
 
 ## QUALE DECENNIO HA DATO I FILM MIGLIORI MEDIAMENTE E IN ASSOLUTO ##
 @st.cache_resource
-def top_10_decennio(_df_all_movies_voted):
-
-    # Aggiungi la colonna 'decennio' al DataFrame
-    df_10 = df_all_movies_voted.withColumn('decennio', (col('year') / 10).cast("int") * 10)
-
-    df_10_mean = df_10.groupBy('decennio').avg('rating')
-    df_10_mean = df_10_mean.withColumn('rating', round(col('avg(rating)'), 1)).select('decennio', 'rating')
+def top_10_decennio(_df_decade):
+    df_10_mean = df_decade.groupBy('decade').avg('rating')
+    df_10_mean = df_10_mean.withColumn('rating', round(col('avg(rating)'), 1)).select('decade', 'rating')
     df_10_mean = df_10_mean.orderBy(desc('rating'))
 
-    df_10_max = df_10.groupBy('decennio').max('rating')
-    df_10_max = df_10_max.withColumn('rating', round(col('max(rating)'), 1)).select('decennio', 'rating')
+    df_10_max = df_decade.groupBy('decade').max('rating')
+    df_10_max = df_10_max.withColumn('rating', round(col('max(rating)'), 1)).select('decade', 'rating')
     df_10_max = df_10_max.orderBy(desc('rating'))
     
     return df_10_max, df_10_mean
 
-df_10_max, df_10_mean = top_10_decennio(df_all_movies_voted)
+df_10_max, df_10_mean = top_10_decennio(df_decade)
 
 left_line7, right_line7 = st.columns(2)
 
 if lista_select[12]:
     left_line7.header("$\\bold{TOP}$ $\\bold{x}$ $\\bold{Decade}$")
     left_line7.dataframe(df_10_max, hide_index=True, column_config={
-            "decennio": st.column_config.NumberColumn(format="%d")
+            "decade": st.column_config.NumberColumn(format="%d")
     })
 
 if lista_select[13]:
     right_line7.header("$\\bold{MEAN}$ $\\bold{x}$ $\\bold{Decade}$")
     right_line7.dataframe(df_10_mean, hide_index=True, column_config={
-            "decennio": st.column_config.NumberColumn(format="%d")
+            "decade": st.column_config.NumberColumn(format="%d")
         })
 
 
