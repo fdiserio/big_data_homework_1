@@ -27,5 +27,5 @@ Per l'avvio della Dashboard è necessario avere installato un ambiente virtuale 
 
 Dopo averlo attivato, da terminale (in ambiente virtuale) bisogna lanciare i seguenti comandi:
 **pip install -r .\requirements.txt**
-**streamlit run .\Dashboard.py**
+**streamlit run .\Homepage.py**
 
