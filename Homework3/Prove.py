@@ -32,18 +32,94 @@ st.title('🎬📽️:rainbow[CINE-DATA: Dataset Cinematografici]🎞️🎥')
 db = client['Homework3']
 collection_imdb = db['imdb']        # Dataset imdb
 collection_genre = db['genre']      # Dataset genre
-collection_union = db["Data_NoSQL"] # Unione dei due Dataset
-
+ 
 # Togliamo la colonna id dalla visualizzazione
 collection_genre_list = list(collection_genre.aggregate([{"$project": {"_id": 0}}]))
-df_genre_movies = pd.DataFrame(collection_genre_list)
+df_genre = pd.DataFrame(collection_genre_list)
 
 collection_imdb_list = list(collection_imdb.aggregate([
         {"$project": {"_id": 0}}
 #        {"$match": {"year": {"$ne": None}}}
     ]))
-df_imdb_movies = pd.DataFrame(collection_imdb_list)
+df_imdb = pd.DataFrame(collection_imdb_list)
 
+
+'''
+def remove_duplicates(collection):
+    # Recupera un documento per ottenere i campi dinamicamente
+    sample_document = collection.find_one()
+    if sample_document is None:
+        print("La collection è vuota.")
+        return
+ 
+    # Crea il campo _id per il gruppo basato su tutti i campi del documento
+    group_id = {field: f"${field}" for field in sample_document if field != "_id"}
+ 
+    # Aggrega i documenti per trovare i duplicati usando tutti i campi eccetto _id
+    pipeline = [
+        {
+            "$group": {
+                "_id": group_id,
+                "unique_ids": {"$addToSet": "$_id"},
+                "count": {"$sum": 1}
+            }
+        },
+        {
+            "$match": {
+                "count": {"$gt": 1}
+            }
+        }
+    ]
+ 
+    duplicates = list(collection.aggregate(pipeline))
+ 
+    # Rimuove i duplicati mantenendo solo il primo documento inserito
+    for doc in duplicates:
+        ids_to_remove = doc["unique_ids"][1:]  # Mantiene solo il primo documento
+        collection.delete_many({"_id": {"$in": ids_to_remove}})
+ 
+    print("Duplicati rimossi con successo!")
+ 
+# Rimuove i duplicati nelle collection 'imdb' e 'genre'
+remove_duplicates(collection_imdb)
+remove_duplicates(collection_genre)
+ 
+______________________________________________
+
+
+# Converti la colonna in numerica, impostando errors='coerce' per convertire i valori non numerici in NaN
+df_imdb['year'] = pd.to_numeric(df_imdb['year'], errors='coerce')
+ 
+# Rimuovi le righe che contengono NaN in 'col1'
+df_imdb = df_imdb.dropna(subset=['year'])
+ 
+# Converti di nuovo la colonna in interi se necessario
+df_imdb['year'] = df_imdb['year'].astype(int)
+ 
+
+# Elimina tutti i documenti nella collection
+collection_genre.delete_many({})
+collection_imdb.delete_many({})
+ 
+# Converte il DataFrame in un formato adatto per MongoDB
+data_genre = df_genre.to_dict(orient='records')
+data_imdb = df_imdb.to_dict(orient='records')
+ 
+# Inserisce i nuovi documenti nella collection
+collection_imdb.insert_many(data_imdb)
+collection_genre.insert_many(data_genre)
+
+# Recupera tutti i documenti dalla collection
+documents_imdb = list(collection_imdb.find())
+# Converti i documenti in un DataFrame
+df_imdb = pd.DataFrame(documents_imdb)
+
+# Recupera tutti i documenti dalla collection
+documents_genre = list(collection_genre.find())
+# Converti i documenti in un DataFrame
+df_genre = pd.DataFrame(documents_genre)
+
+'''
 
 ## VISUALIZE DATASET ##
 left_column, right_column = st.columns(2)
@@ -52,7 +128,7 @@ right_check = right_column.checkbox("GENRE Dataset")
 
 # Visualizza il dataset imdb
 if left_check:
-    left_column.dataframe(df_imdb_movies, hide_index=True, column_config = {
+    left_column.dataframe(df_imdb, hide_index=True, column_config = {
         "year": st.column_config.NumberColumn(format="%d"),
         "votes": st.column_config.NumberColumn(format="%d"),
         "rating": st.column_config.ProgressColumn(
@@ -65,7 +141,7 @@ if left_check:
 
 # Visualizza il dataset genre
 if right_check:
-    right_column.dataframe(df_genre_movies, hide_index=True, column_config = {
+    right_column.dataframe(df_genre, hide_index=True, column_config = {
         "year": st.column_config.NumberColumn(format="%d"),
         "num_raters": st.column_config.NumberColumn(format="%d"),
         "num_reviews": st.column_config.NumberColumn(format="%d"),
@@ -79,6 +155,34 @@ if right_check:
     })
 
 
+
+
+collection_union = db["Data_NoSQL"]
+
+collection_union.delete_many({})
+
+pipeline_temp = [
+        {"$unionWith": {"coll": "genre"}}
+    ]
+
+pipeline_temp = list(collection_imdb.aggregate(pipeline_temp))
+
+df_union = pd.DataFrame(pipeline_temp)
+
+# Converte il DataFrame in un formato adatto per MongoDB
+data_union = df_union.to_dict(orient='records')
+
+collection_union = db["Data_NoSQL"]
+
+# Inserisce i nuovi documenti nella collection
+collection_union.insert_many(data_union)
+
+
+
+
+
+
+'''
 
 ### OPERATIONS ###
 # Menu' di Checkbox
@@ -139,63 +243,16 @@ st.subheader("",divider="rainbow")
 
 left_query1, right_query1 = st.columns(2)
 
-
 ## FILM COMUNI TRA DATASET ##
 @st.cache_resource
-def common_films(_collection_imdb):
-    pipeline = [
-        {
-            "$lookup": {
-                "from": "genre",
-                "let": {"title": "$title", "year": "$year"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$name", "$$title"]},
-                                    {"$eq": ["$year", "$$year"]}
-                                ]
-                            }
-                        }
-                    }
-                ],
-                "as": "genre_info"
-            }
-        },
-        {
-            "$unwind": "$genre_info"
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "title": 1,
-                "year": 1
-            }
-        },
-        {
-            "$group": {
-                "_id": {"title": "$title", "year": "$year"}
-            }
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "title": "$_id.title",
-                "year": "$_id.year"
-            }
-        }
-    ]
-    
-    common_movies = collection_imdb.aggregate(pipeline)
+def common_film(_df_imdb_movies, _df_genre_movies):
+    df_common_movies = df_imdb_movies.join(df_genre_movies, (df_imdb_movies["title"] == df_genre_movies["name"])
+                                            & (df_imdb_movies["year"] == df_genre_movies["year"]))\
+                                            .select(df_imdb_movies["title"],df_imdb_movies['year'])\
+                                            .distinct()
+    return df_common_movies
 
-    common_movies = list(common_movies)
-    return common_movies
- 
-# Esegui l'operazione per ottenere i film comuni tra le due collection
-common_movies = common_films(collection_imdb)
-
-df_common_movies = pd.DataFrame(common_movies)  # Trasformiamo in DF Pandas
+df_common_movies = common_film(df_imdb_movies, df_genre_movies)
 
 if lista_select[0]:
     left_query1.header("$\\bold{Common}$ $\\bold{Film}$")
@@ -203,44 +260,6 @@ if lista_select[0]:
         "year": st.column_config.NumberColumn(format="%d"),
         })
 
-
-## TUTTI I FILM ##
-@st.cache_resource
-def all_films(_collection_union):
-    pipeline = [
-        {"$project": {"_id": 0, "title": 1, "year": 1}},
-        {"$group": {"_id": {"title": "$title", "year": "$year"}}},
-        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}}
-    ]
-
-    result = list(collection_imdb.aggregate(pipeline))
- 
-    return result
- 
-# Esegui la funzione per ottenere tutti i film
-all_movies = all_films(collection_union)
- 
-# Converti la lista di documenti in un DataFrame Pandas
-df_all_movies = pd.DataFrame(all_movies)
-
-print(len(df_all_movies))
-
-
-if lista_select[1]:
-    right_query1.header("$\\bold{All}$ $\\bold{Film}$")
-    right_query1.dataframe(df_all_movies, hide_index=True, column_config={
-        "year": st.column_config.NumberColumn(format="%d"),
-        })
-
-
-left_query2, right_query2 = st.columns(2)
-
-
-
-
-
-
-'''
 
 ## TUTTI I FILM ##
 @st.cache_resource

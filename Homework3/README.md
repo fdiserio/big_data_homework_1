@@ -26,6 +26,7 @@ Per l'avvio della Dashboard è necessario avere installato un ambiente virtuale 
 - venv/Scripts/Activate.ps1
 
 Dopo averlo attivato, da terminale (in ambiente virtuale) bisogna lanciare i seguenti comandi:
+**python -m pip install pymongo[svr]==3.11**
 **pip install -r .\requirements.txt**
 **streamlit run .\Homepage.py**
 
