@@ -1,4 +1,4 @@
-#!C:\Users\Daiana\Documents\GitHub\EscapeRoom\big_data_homework_1\Homework3\venv\Scripts\python.exe
+#!C:\Users\franc\Desktop\prova pyspark\Homework3\venv\Scripts\python.exe
 
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more

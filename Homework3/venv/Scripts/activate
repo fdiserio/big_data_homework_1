@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\Daiana\Documents\GitHub\EscapeRoom\big_data_homework_1\Homework3\venv"
+VIRTUAL_ENV="C:\Users\franc\Desktop\prova pyspark\Homework3\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

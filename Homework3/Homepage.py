@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-"""#3 - Homework"""
+"""#3 - Homework - Homepage"""
 
 ## LIBRARIES IMPORT ##
 from libraries import *
 
 # CONNESSIONE AL CLUSTER
-uri = "mongodb+srv://Homework3:Homework3@clusterhomework3.1gev4ck.mongodb.net/?retryWrites=true&w=majority&appName=ClusterHomework3"
+uri_D = "mongodb+srv://Homework3:Homework3@clusterhomework3.1gev4ck.mongodb.net/?retryWrites=true&w=majority&appName=ClusterHomework3"
+uri_F = "mongodb+srv://Homework3:Homework3@homework3.fc8huhi.mongodb.net/?retryWrites=true&w=majority&appName=Homework3"
+uri = uri_F
 
 # Create a new client and connect to the server
 client = MongoClient(uri)
@@ -142,60 +144,40 @@ left_query1, right_query1 = st.columns(2)
 
 ## FILM COMUNI TRA DATASET ##
 @st.cache_resource
-def common_films(_collection_imdb):
+def common_films(_collection_union):
     pipeline = [
         {
-            "$lookup": {
-                "from": "genre",
-                "let": {"title": "$title", "year": "$year"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$name", "$$title"]},
-                                    {"$eq": ["$year", "$$year"]}
-                                ]
-                            }
-                        }
-                    }
+            "$facet": {
+                "parte_1": [
+                    {"$match": {"run_length": {"$ne": None}}},
+                    {"$group": {"_id": {"title": "$title", "year": "$year"}}}
                 ],
-                "as": "genre_info"
-            }
-        },
-        {
-            "$unwind": "$genre_info"
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "title": 1,
-                "year": 1
-            }
-        },
-        {
-            "$group": {
-                "_id": {"title": "$title", "year": "$year"}
+                "parte_2": [
+                    {"$match": {"run_length": None}},
+                    {"$group": {"_id": {"title": "$title", "year": "$year"}}}
+                ]
             }
         },
         {
             "$project": {
-                "_id": 0,
-                "title": "$_id.title",
-                "year": "$_id.year"
+                "risultato_completo": {"$concatArrays": ["$parte_1", "$parte_2"]}
             }
-        }
+        },
+        {"$unwind": "$risultato_completo"},
+        {"$replaceRoot": {"newRoot": "$risultato_completo"}},
+        {"$group": {"_id": {"title": "$_id.title", "year": "$_id.year"}, "count": {"$sum": 1}}},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}}
     ]
-    
-    common_movies = collection_imdb.aggregate(pipeline)
 
-    common_movies = list(common_movies)
+    common_movies = list(collection_union.aggregate(pipeline))
     return common_movies
  
 # Esegui l'operazione per ottenere i film comuni tra le due collection
-common_movies = common_films(collection_imdb)
+common_movies = common_films(collection_union)
 
 df_common_movies = pd.DataFrame(common_movies)  # Trasformiamo in DF Pandas
+print(f"Common movies: {len(df_common_movies)}")
 
 if lista_select[0]:
     left_query1.header("$\\bold{Common}$ $\\bold{Film}$")
@@ -213,7 +195,7 @@ def all_films(_collection_union):
         {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}}
     ]
 
-    result = list(collection_imdb.aggregate(pipeline))
+    result = list(collection_union.aggregate(pipeline))
  
     return result
  
@@ -222,8 +204,7 @@ all_movies = all_films(collection_union)
  
 # Converti la lista di documenti in un DataFrame Pandas
 df_all_movies = pd.DataFrame(all_movies)
-
-print(len(df_all_movies))
+print(f"All movies: {len(df_all_movies)}")
 
 
 if lista_select[1]:
@@ -235,58 +216,20 @@ if lista_select[1]:
 
 left_query2, right_query2 = st.columns(2)
 
-
-
-
-
-
-'''
-
-## TUTTI I FILM ##
 @st.cache_resource
-def all_film(_df_imdb_movies, _df_genre_movies):
-    df_all_movies = df_imdb_movies.select('title','year').union(df_genre_movies.select('name','year')).distinct()
-    return df_all_movies
+def best_film(_collection_union):
+    pipeline = [
+        {"$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}},
+        {"$addFields": {"rating": {"$round": ["$rating", 1]}}},
+        {"$sort": {"rating": -1}},
+        {"$limit": 10},
+        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}}
+    ]
 
-df_all_movies = all_film(df_imdb_movies, df_genre_movies)
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-if lista_select[1]:
-    right_query1.header("$\\bold{All}$ $\\bold{Film}$")
-    right_query1.dataframe(df_all_movies, hide_index=True, column_config={
-        "year": st.column_config.NumberColumn(format="%d"),
-        })
-
-
-left_query2, right_query2 = st.columns(2)
-
-## FILM PIU' APPREZZATI ##
-@st.cache_resource
-def best_film(_df_imdb_movies, _df_genre_movies):
-    
-    rating_imdb = df_imdb_movies.select("title","year","rating")
-    rating_imdb = rating_imdb.withColumnRenamed("rating", "rating_imdb")
-    df_all_movies_voted = df_all_movies.join(rating_imdb, (df_all_movies["title"]==rating_imdb["title"])
-                                    & when(df_all_movies["year"].isNotNull(), (df_all_movies["year"]==rating_imdb["year"])), "left_outer")\
-                                    .select(df_all_movies["title"],df_all_movies["year"],rating_imdb["rating_imdb"]).distinct()
-
-    rating_genre = df_genre_movies.select("name","year","rating")
-    rating_genre = rating_genre.withColumnRenamed("rating", "rating_genre")
-    df_all_movies_voted = df_all_movies_voted.join(rating_genre, (df_all_movies_voted["title"]==rating_genre["name"])
-                                            &(df_all_movies_voted["year"]==rating_genre["year"]), "left_outer")\
-                                            .select(df_all_movies["title"],df_all_movies["year"],\
-                                                    rating_imdb["rating_imdb"],rating_genre["rating_genre"]).distinct()
-
-    df_all_movies_voted = df_all_movies_voted.withColumn("rating", when(col("rating_imdb").isNotNull()
-                                                                & col("rating_genre").isNotNull(),
-                                                                round((col("rating_imdb")+col("rating_genre"))/lit(2),1))\
-                                                                .otherwise(round(coalesce(col("rating_imdb"), col("rating_genre")), 1)))
-
-    df_all_movies_voted = df_all_movies_voted.select("title","year","rating")
-    top_10 = df_all_movies_voted.orderBy(desc("rating")).limit(10)
-
-    return top_10, df_all_movies_voted
-
-top_10, df_all_movies_voted = best_film(df_imdb_movies, df_genre_movies)
+top_10 = best_film(collection_union)
 
 if lista_select[2]:
     left_query2.header("$\\bold{TOP}$ $\\bold{10}$")
@@ -302,11 +245,19 @@ if lista_select[2]:
 
 ## FILM PEGGIORI ##
 @st.cache_resource
-def flop_film(_df_all_movies_voted):
-    flop_10 = df_all_movies_voted.orderBy("rating").limit(10)
-    return flop_10
+def flop_film(_collection_union):
+    pipeline = [
+        {"$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}},
+        {"$addFields": {"rating": {"$round": ["$rating", 1]}}},
+        {"$sort": {"rating": 1}},
+        {"$limit": 10},
+        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}}
+    ]
 
-flop_10 = flop_film(df_all_movies_voted)
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
+
+flop_10 = flop_film(collection_union)
 
 if lista_select[3]:
     right_query2.header("$\\bold{FLOP}$ $\\bold{10}$")
@@ -318,39 +269,52 @@ if lista_select[3]:
         ),
         "year": st.column_config.NumberColumn(format="%d")
     })
-    
+  
 
 left_line3, right_line3 = st.columns(2)
 
 ## FILM VOTATO DA PIU' UTENTI ##
 @st.cache_resource
-def most_voted_film(_df_imdb_movies, _df_genre_movies, _df_all_movies):
+def most_voted_film(_collection_union):
+    pipeline = [
+        {
+            "$project": {
+                "_id": 0,
+                "title": 1,
+                "year": 1,
+                "votes": {"$max": ["$num_raters", "$votes"]}
+            }
+        },
+        # Raggruppare per title e year
+        {
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"},
+                "votes": {"$max": "$votes"}
+            }
+        },
+        {
+            "$sort": {
+                "votes": -1
+            }
+        },
+        {
+            "$limit": 1
+        },
+        # Proiettare i risultati finali
+        {
+            "$project": {
+                "_id": 0,
+                "title": "$_id.title",
+                "year": "$_id.year",
+                "votes": "$votes"
+            }
+        }
+    ]
+    
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-    df_voters = df_all_movies.select("*").withColumn("voters",lit(0))
-
-    df_voters_imdb = df_imdb_movies.select("title","year","votes")
-    df_voters_imdb = df_voters_imdb.withColumnRenamed("votes", "voters_imdb")
-    df_voters = df_voters.join(df_voters_imdb, (df_voters["title"]==df_voters_imdb["title"])
-                        &(df_voters["year"]==df_voters_imdb["year"]), "left_outer")\
-                        .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"]).distinct()
-
-    df_voters_genre = df_genre_movies.select("name","year","num_raters")
-    df_voters_genre = df_voters_genre.groupBy("name","year").avg("num_raters")
-    df_voters_genre = df_voters_genre.withColumn("voters_genre", col("avg(num_raters)").cast("int"))
-    df_voters_genre = df_voters_genre.select("name","year","voters_genre")
-    df_voters = df_voters.join(df_voters_genre, (df_voters["title"]==df_voters_genre["name"])
-                        &(df_voters["year"]==df_voters_genre["year"]), "left_outer")\
-                        .select(df_voters["title"],df_voters["year"],df_voters_imdb["voters_imdb"],df_voters_genre["voters_genre"])\
-                        .distinct()
-
-    df_voters = df_voters.withColumn("voters", greatest(col("voters_imdb"),col("voters_genre")))\
-                        .select("title","year","voters")
-
-    most_voted = df_voters.orderBy(desc("voters")).limit(1)
-
-    return most_voted, df_voters
-
-most_voted, df_voters = most_voted_film(df_imdb_movies, df_genre_movies, df_all_movies)
+most_voted = most_voted_film(collection_union)
    
 if lista_select[4]:
     left_line3.header("$\\bold{Most}$ $\\bold{Voted}$")
@@ -362,17 +326,38 @@ if lista_select[4]:
 
 ## FILM RECENSITO DA PIU' UTENTI ##
 @st.cache_resource
-def most_reviewed_film(_df_genre_movies):
+def most_reviewed_film(_collection_genre):
+    pipeline = [
+        # Raggruppare per title e year
+        {
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"},
+                "num_reviews": {"$avg": "$num_reviews"}
+            }
+        },
+        {
+            "$sort": {
+                "num_reviews": -1
+            }
+        },
+        {
+            "$limit": 1
+        },
+        # Proiettare i risultati finali
+        {
+            "$project": {
+                "_id": 0,
+                "title": "$_id.title",
+                "year": "$_id.year",
+                "num_reviews": "$num_reviews"
+            }
+        }
+    ]
+    
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-    most_reviewed = df_genre_movies.groupBy('name','year').avg('num_reviews')\
-                    .select('name','year', 'avg(num_reviews)')
-
-    most_reviewed = most_reviewed.select("name","year","avg(num_reviews)")\
-                    .orderBy(desc("avg(num_reviews)")).limit(1)
-
-    return most_reviewed
-
-most_reviewed = most_reviewed_film(df_genre_movies)
+most_reviewed = most_reviewed_film(collection_genre)
 
 if lista_select[5]:
     right_line3.header("$\\bold{Most}$ $\\bold{Reviewed}$")
@@ -386,7 +371,46 @@ left_line4, right_line4 = st.columns(2)
 
 ## FILM PER GENERE ##
 @st.cache_resource
-def film_x_genre(_df_imdb_movies, _df_genre_movies, _spark):
+def film_x_genre(_collection_union):
+    pipeline = [
+        {
+            "$project": {"title": 1, "year": 1, "genre": {"$split": ["$genre", ","]}, "rating": 1}
+        },
+        {
+            "$unwind": "$genre"
+        },
+        {"$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}}},
+        {"$group": {"_id": "$_id.genre", "count": {"$count": {}}}},
+        {"$project": {
+            "_id": 0,
+            "genre": "$_id",
+            "count": "$count"
+        }}
+    ]
+
+    
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
+
+film_x_genre = film_x_genre(collection_union)
+
+if lista_select[6]:
+    left_line4.header("$\\bold{Film}$ $\\bold{x}$ $\\bold{Genre}$")
+    left_line4.dataframe(film_x_genre, hide_index=True, column_config={
+        "number_of_films": st.column_config.NumberColumn(format="%d")
+        })
+    
+    
+    
+    
+    
+'''
+
+
+
+
+
+
 
     df_imdb_exploded = df_imdb_movies.withColumn("genre", explode("genre"))
 
@@ -417,13 +441,7 @@ def film_x_genre(_df_imdb_movies, _df_genre_movies, _spark):
 
     return df, df_diff, df_imdb_exploded
 
-film_x_genre, df_diff, df_imdb_exploded = film_x_genre(df_imdb_movies, df_genre_movies, spark)
-
-if lista_select[6]:
-    left_line4.header("$\\bold{Film}$ $\\bold{x}$ $\\bold{Genre}$")
-    left_line4.dataframe(film_x_genre, hide_index=True, column_config={
-        "number_of_films": st.column_config.NumberColumn(format="%d")
-        })
+film_x_genre, df_diff, df_imdb_exploded = 
 
 
 ## MEDIA VOTI PER GENERE ##

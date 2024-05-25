@@ -21,12 +21,16 @@ Il seguente progetto riporta un'analisi dettagliata di due dataset cinematrograf
 18. Parole più ricorrenti nei commenti della Top 10
 19. Parole più ricorrenti nei commenti della Flop 10
 
-Per l'avvio della Dashboard è necessario avere installato un ambiente virtuale 'venv' all'interno della cartella di progetto:
-- python -m venv venv
-- venv/Scripts/Activate.ps1
+Per l'esecuzione del progetto bisogna effettuare i seguenti passi:
+1. Installare un ambiente virtuale 'venv' all'interno della cartella di progetto:
+    - python -m venv venv
+    - venv/Scripts/Activate.ps1
+2. Da terminale (in ambiente virtuale), lanciare il seguente comando per l'installazione delle librerie:
+    **pip install -r .\requirements.txt**
+3. Modificare la stringa "uri" all'interno dei file "LoadData.py" e "Homepage.py" per la connessione al proprio cluster su MongoDB
+4. Da terminale (in ambiente virtuale), lanciare il seguente comando per creare le collection sul cluster:
+    **python .\LoadData.py**
+5. Da terminale (in ambiente virtuale), lanciare il seguente comando per avviare la dashboard streamlit:
+    **streamlit run .\Homepage.py**
 
-Dopo averlo attivato, da terminale (in ambiente virtuale) bisogna lanciare i seguenti comandi:
-**python -m pip install pymongo[svr]==3.11**
-**pip install -r .\requirements.txt**
-**streamlit run .\Homepage.py**
-
+N.B. Il progetto è stato svolto utilizzando la versione di Python 3.11.
