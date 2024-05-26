@@ -7,7 +7,7 @@ from libraries import *
 # CONNESSIONE AL CLUSTER
 uri_D = "mongodb+srv://Homework3:Homework3@clusterhomework3.1gev4ck.mongodb.net/?retryWrites=true&w=majority&appName=ClusterHomework3"
 uri_F = "mongodb+srv://Homework3:Homework3@homework3.fc8huhi.mongodb.net/?retryWrites=true&w=majority&appName=Homework3"
-uri = uri_F
+uri = uri_D
 
 # Create a new client and connect to the server
 client = MongoClient(uri)
@@ -159,15 +159,23 @@ def common_films(_collection_union):
             }
         },
         {
-            "$project": {
-                "risultato_completo": {"$concatArrays": ["$parte_1", "$parte_2"]}
-            }
+            "$project": {"risultato_completo": {"$concatArrays": ["$parte_1", "$parte_2"]}}
         },
-        {"$unwind": "$risultato_completo"},
-        {"$replaceRoot": {"newRoot": "$risultato_completo"}},
-        {"$group": {"_id": {"title": "$_id.title", "year": "$_id.year"}, "count": {"$sum": 1}}},
-        {"$match": {"count": {"$gt": 1}}},
-        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}}
+        {
+            "$unwind": "$risultato_completo"
+        },
+        {
+            "$replaceRoot": {"newRoot": "$risultato_completo"}
+        },
+        {
+            "$group": {"_id": {"title": "$_id.title", "year": "$_id.year"}, "count": {"$sum": 1}}
+        },
+        {
+            "$match": {"count": {"$gt": 1}}
+        },
+        {
+            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}
+        }
     ]
 
     common_movies = list(collection_union.aggregate(pipeline))
@@ -190,9 +198,15 @@ if lista_select[0]:
 @st.cache_resource
 def all_films(_collection_union):
     pipeline = [
-        {"$project": {"_id": 0, "title": 1, "year": 1}},
-        {"$group": {"_id": {"title": "$title", "year": "$year"}}},
-        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}}
+        {
+            "$project": {"_id": 0, "title": 1, "year": 1}
+        },
+        {
+            "$group": {"_id": {"title": "$title", "year": "$year"}}
+        },
+        {
+            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}
+        }
     ]
 
     result = list(collection_union.aggregate(pipeline))
@@ -206,7 +220,6 @@ all_movies = all_films(collection_union)
 df_all_movies = pd.DataFrame(all_movies)
 print(f"All movies: {len(df_all_movies)}")
 
-
 if lista_select[1]:
     right_query1.header("$\\bold{All}$ $\\bold{Film}$")
     right_query1.dataframe(df_all_movies, hide_index=True, column_config={
@@ -216,14 +229,26 @@ if lista_select[1]:
 
 left_query2, right_query2 = st.columns(2)
 
+
+## TOP 10 ##
 @st.cache_resource
 def best_film(_collection_union):
     pipeline = [
-        {"$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}},
-        {"$addFields": {"rating": {"$round": ["$rating", 1]}}},
-        {"$sort": {"rating": -1}},
-        {"$limit": 10},
-        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}}
+        {
+            "$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}
+        },
+        {
+            "$addFields": {"rating": {"$round": ["$rating", 1]}}
+        },
+        {
+            "$sort": {"rating": -1}
+        },
+        {
+            "$limit": 10
+        },
+        {
+            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}
+        }
     ]
 
     risultato_finale = list(collection_union.aggregate(pipeline))
@@ -247,11 +272,21 @@ if lista_select[2]:
 @st.cache_resource
 def flop_film(_collection_union):
     pipeline = [
-        {"$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}},
-        {"$addFields": {"rating": {"$round": ["$rating", 1]}}},
-        {"$sort": {"rating": 1}},
-        {"$limit": 10},
-        {"$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}}
+        {
+            "$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}
+        },
+        {
+            "$addFields": {"rating": {"$round": ["$rating", 1]}}
+        },
+        {
+            "$sort": {"rating": 1}
+        },
+        {
+            "$limit": 10
+        },
+        {
+            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}
+        }
     ]
 
     risultato_finale = list(collection_union.aggregate(pipeline))
@@ -272,6 +307,7 @@ if lista_select[3]:
   
 
 left_line3, right_line3 = st.columns(2)
+
 
 ## FILM VOTATO DA PIU' UTENTI ##
 @st.cache_resource
@@ -320,7 +356,7 @@ if lista_select[4]:
     left_line3.header("$\\bold{Most}$ $\\bold{Voted}$")
     left_line3.dataframe(most_voted, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
-        "voters": st.column_config.NumberColumn(format="%d")
+        "votes": st.column_config.NumberColumn(format="%d")
     })
 
 
@@ -343,18 +379,12 @@ def most_reviewed_film(_collection_genre):
         {
             "$limit": 1
         },
-        # Proiettare i risultati finali
         {
-            "$project": {
-                "_id": 0,
-                "title": "$_id.title",
-                "year": "$_id.year",
-                "num_reviews": "$num_reviews"
-            }
+            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "num_reviews": "$num_reviews"}
         }
     ]
     
-    risultato_finale = list(collection_union.aggregate(pipeline))
+    risultato_finale = list(collection_genre.aggregate(pipeline))
     return risultato_finale
 
 most_reviewed = most_reviewed_film(collection_genre)
@@ -363,7 +393,7 @@ if lista_select[5]:
     right_line3.header("$\\bold{Most}$ $\\bold{Reviewed}$")
     right_line3.dataframe(most_reviewed, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
-        "avg(num_reviews)": st.column_config.NumberColumn("reviews", format="%d")
+        "num_reviews": st.column_config.NumberColumn("reviews", format="%d")
     })
 
 
@@ -379,13 +409,15 @@ def film_x_genre(_collection_union):
         {
             "$unwind": "$genre"
         },
-        {"$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}}},
-        {"$group": {"_id": "$_id.genre", "count": {"$count": {}}}},
-        {"$project": {
-            "_id": 0,
-            "genre": "$_id",
-            "count": "$count"
-        }}
+        {
+            "$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}}
+        },
+        {
+            "$group": {"_id": "$_id.genre", "count": {"$count": {}}}
+        },
+        {
+            "$project": {"_id": 0, "genre": "$_id", "count": "$count"}
+        }
     ]
 
     
@@ -397,76 +429,42 @@ film_x_genre = film_x_genre(collection_union)
 if lista_select[6]:
     left_line4.header("$\\bold{Film}$ $\\bold{x}$ $\\bold{Genre}$")
     left_line4.dataframe(film_x_genre, hide_index=True, column_config={
-        "number_of_films": st.column_config.NumberColumn(format="%d")
+        "count": st.column_config.NumberColumn(format="%d")
         })
-    
-    
-    
-    
-    
-'''
 
-
-
-
-
-
-
-    df_imdb_exploded = df_imdb_movies.withColumn("genre", explode("genre"))
-
-    # Ottieni i valori unici della colonna esplosa
-    df_unique_genre = df_imdb_exploded.select("genre").distinct()
-
-    lista_genres = []
-    for i in range (df_unique_genre.count()):
-        lista_genres.append(df_unique_genre.collect()[i][0])
-
-    film_x_genre = {}
-
-    for elem in lista_genres:
-        imdb_genre = df_imdb_movies.filter(array_contains(col("genre"), elem))\
-                                    .select('title','year','genre').count()
-        film_x_genre[elem] = imdb_genre
-
-
-    df_diff = df_genre_movies.join(df_common_movies, (df_genre_movies["name"]==df_common_movies["title"])
-                                & (df_genre_movies["year"]==df_common_movies["year"]), how="left_anti")
-
-    for elem in lista_genres:
-        genre_genre = df_diff.filter(array_contains(col("genres"), elem))\
-                                    .select('name','year','genres').count()
-        film_x_genre[elem] += genre_genre
-
-    df = pd.DataFrame(list(film_x_genre.items()), columns=['genre', 'number_of_films'])
-
-    return df, df_diff, df_imdb_exploded
-
-film_x_genre, df_diff, df_imdb_exploded = 
 
 
 ## MEDIA VOTI PER GENERE ##
 @st.cache_resource
-def mean_genre(_df_diff, _df_imdb_exploded):
+def mean_genre(_collection_union):
+    pipeline = [
+        {
+            "$project": {"title": 1, "year": 1, "genre": {"$split": ["$genre", ","]}, "rating": 1}
+        },
+        {
+            "$unwind": "$genre"
+        },
+        {
+            "$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}, "rating": {"$avg": "$rating"}}
+        },
+        {
+            "$group": {"_id": "$_id.genre", "rating": {"$avg": "$rating"}}
+        },
+        {
+            "$addFields": {"rating": {"$round": ["$rating", 1]}}
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "genre": "$_id",
+                "rating": "$rating"}
+        }
+    ]
 
-    df_diff_exploded = df_diff.withColumn("genre", explode("genres"))
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-    # uniamo le tabelle exploded
-    df_exploded = df_imdb_exploded.select('genre', 'rating').union(df_diff_exploded.select('genre', 'rating'))
-
-    df_mean_genre = df_exploded.groupBy("genre").avg('rating')\
-                                .select('genre', 'avg(rating)')
-
-    df_mean_genre = df_mean_genre.withColumn("rating", round(col("avg(rating)"),1)).select("genre","rating")
-
-    # Conta il numero di film per genere
-    film_count_per_genre = df_exploded.groupBy("genre").agg(count('*').alias('film_count'))
-
-    # Unisci i due DataFrame
-    df_mean_genre_with_count = df_mean_genre.join(film_count_per_genre, 'genre', 'inner')
-
-    return df_mean_genre_with_count
-
-df_mean_genre_with_count = mean_genre(df_diff, df_imdb_exploded)
+df_mean_genre_with_count = mean_genre(collection_union)
 
 if lista_select[7]:
     right_line4.header("$\\bold{Votes}$ $\\bold{x}$ $\\bold{Genre}$")
@@ -475,46 +473,67 @@ if lista_select[7]:
             min_value=0,
             max_value=10,  
             format="%f",
-        ),
-        "film_count": st.column_config.NumberColumn(format="%d")
+        )
     })
 
 
 left_line5, right_line5 = st.columns(2)
 
+
 ## DURATA MEDIA DI UN FILM ##
 @st.cache_resource
-def mean_time(_df_genre_movies):
+def mean_time(_collection_genre):
+    pipeline = [
+        {
+            "$group": {"_id": None, "run_length": {"$avg": "$run_length"}}
+        },
+        {
+            "$project": { "_id": 0, "run_length": {"$round": ["$run_length", 1]}}
+        }
+    ]
 
-    df_time = df_genre_movies.select(avg('run_length'))
-    df_time = df_time.withColumn("run_length", round(col("avg(run_length)"),1)).select("run_length")
+    risultato_finale = list(collection_genre.aggregate(pipeline))
+    return risultato_finale
 
-    return df_time
-
-df_time = mean_time(df_genre_movies)
+df_time = mean_time(collection_genre)
 
 if lista_select[8]:
     left_line5.header("$\\bold{Mean}$ $\\bold{Time}$ \
                       $\\bold{x}$ $\\bold{Film}$")
     left_line5.dataframe(df_time, hide_index=True)
 
-
+    
 ## DURATA MEDIA PER GENERE ##
 @st.cache_resource
-def mean_time_genre(_df_genre_movies):
+def mean_time_genre(_collection_genre):
+    pipeline = [
+        {
+            "$project": {"title": 1, "year": 1, "genre": {"$split": ["$genre", ","]}, "run_length": 1}
+        },
+        {
+            "$unwind": "$genre"
+        },
+        {
+            "$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}, "run_length": {"$avg": "$run_length"}}
+        },
+        {
+            "$group": {"_id": "$_id.genre", "run_length": {"$avg": "$run_length"}}
+        },
+        {
+            "$addFields": {"run_length": {"$round": ["$run_length", 1]}}
+        },
+        {
+            "$sort": {"run_length": -1}
+        },
+        {
+            "$project": {"_id": 0, "genre": "$_id", "run_length": "$run_length"}
+        }
+    ]
 
-    df_genre_exploded = df_genre_movies.withColumn("genre", explode("genres"))
+    risultato_finale = list(collection_genre.aggregate(pipeline))
+    return risultato_finale
 
-    df_time_genre = df_genre_exploded.groupBy('genre').avg('run_length').select('genre', 'avg(run_length)')
-
-    df_time_genre = df_time_genre.orderBy(desc('avg(run_length)'))
-
-    df_time_genre = df_time_genre.withColumn("run_length", round(col("avg(run_length)"),1))\
-                                .select("genre","run_length")
-
-    return df_time_genre
-
-df_time_genre = mean_time_genre(df_genre_movies)
+df_time_genre = mean_time_genre(collection_genre)
 
 if lista_select[9]:
     right_line5.header("$\\bold{Mean}$ $\\bold{Time}$ \
@@ -524,18 +543,53 @@ if lista_select[9]:
 
 ## RATING PONDERATO ##
 @st.cache_resource
-def rating_ponderato(_df_all_movies_voted, _df_voters):
-    # A parità di voti, si studia il rating di ogni film
-    df_ratio = df_all_movies_voted.join(df_voters, (df_all_movies_voted['title']==df_voters['title'])\
-                                & (df_all_movies_voted['year']==df_voters['year']))\
-                            .select(df_all_movies_voted['title'], df_all_movies_voted['year'], 'voters', 'rating')
+def rating_ponderato(_collection_union):
+    pipeline = [
+        {
+            "$project": {
+                "title": 1, 
+                "year": 1, 
+                "rating": 1, 
+                "votes": {"$max": ["$num_raters", "$votes"]}
+            }
+        },
+        {
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"}, 
+                "rating": {"$avg": "$rating"},
+                "votes": {"$max": "$votes"}
+            }
+        },
+        # Calcola il rating ponderato
+        {
+            "$addFields": {
+                "weighted_rating": {
+                    "$round": [{"$multiply": ["$rating", {"$log10": "$votes"}]}, 1]
+                }
+            }
+        },
+        {
+            "$sort": {"weighted_rating": -1, "rating": -1}
+        },
+        {
+            "$limit": 10
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "title": "$_id.title",
+                "year": "$_id.year",
+                "weighted_rating": "$weighted_rating",
+                "rating": "$rating",
+                "votes": "$votes"
+            }
+        }
+    ]
 
-    df_ratio = df_ratio.withColumn("weighted_rating", round(df_ratio['rating'] * (log10(col("voters"))),1))
-    best_movies = df_ratio.select('title','year','weighted_rating', 'rating', 'voters').orderBy(desc('weighted_rating')).limit(10)
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-    return best_movies
-
-best_movies = rating_ponderato(df_all_movies_voted, df_voters)
+best_movies = rating_ponderato(collection_union)
 
 if lista_select[10]:
     st.header("$\\bold{Weighted}$ $\\bold{Rating}$")
@@ -545,7 +599,7 @@ if lista_select[10]:
             max_value=10,  
             format="%f",
         ),
-        "voters": st.column_config.NumberColumn(format="%d"),
+        "votes": st.column_config.NumberColumn(format="%d"),
         "year": st.column_config.NumberColumn(format="%d")
     })
     
@@ -565,21 +619,73 @@ if lista_select[10]:
 
 ## TOP FILM PER CADENZA DECENNALE ##
 @st.cache_resource
-def top_decennio(_df_all_movies_voted):
-    df_decade = df_all_movies_voted.withColumn("decade", (floor(col("year") / 10) * 10).cast("int"))
-    k = 5
-    window_spec = Window.partitionBy("decade").orderBy(col("rating").desc())
-    df_top_decade = df_decade[['title','year','rating','decade']].withColumn("row_number", row_number().over(window_spec))
-    df_top_decade = df_top_decade.filter(col("row_number") <= k).drop("row_number").drop("decade")
-    return df_top_decade, df_decade
+def top_decennio(_collection_union):
+    pipeline = [
+        {
+            "$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}
+        },
+        {
+            "$addFields": {"rating": {"$round": ["$rating", 1]}}
+        },
+        {   
+            "$project": {
+                "_id": 0,
+                "title": "$_id.title",
+                "year": "$_id.year"
+            }
+        },
+        {
+            "$addFields": {"decade": {"$multiply": [{"$floor": {"$divide": ["$year", 10]}}, 10]}}
+        },
+        {
+            "$group": {
+                "_id": "$decade",
+                "films": {"$push": {"title": "$title", "year": "$year", "rating": "$rating"}}
+            }
+        },
+        
+        {
+            "$unwind": "$films"
+        },
+        {
+            "$addFields": {"films": {"$slice": [{"$sortArray": {"input": "$films", "sortBy": { "rating": -1}}}, 5]}}
+        },
+        {
+            "$unwind": "$films"
+        },
+        {
+            "$replaceRoot": {"newRoot": "$films"}
+        },
+        {
+            "$project":{
+                "title": "$_newRoot.title",
+                "year": "$_newRoot.year",
+                "rating": "$_newRoot.rating"
+            }
+        }
+    ]
 
-df_top_decade, df_decade = top_decennio(df_all_movies_voted)
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
+
+df_top_decade = top_decennio(collection_union)
 
 if lista_select[11]:
     st.header("$\\bold{Film}$ $\\bold{x}$ $\\bold{Decade}$")
     st.dataframe(df_top_decade, use_container_width=True, hide_index=True, column_config={
             "year": st.column_config.NumberColumn(format="%d")
         })
+    
+  
+
+''' 
+df_decade = df_all_movies_voted.withColumn("decade", (floor(col("year") / 10) * 10).cast("int"))
+    k = 5
+    window_spec = Window.partitionBy("decade").orderBy(col("rating").desc())
+    df_top_decade = df_decade[['title','year','rating','decade']].withColumn("row_number", row_number().over(window_spec))
+    df_top_decade = df_top_decade.filter(col("row_number") <= k).drop("row_number").drop("decade")
+    return df_top_decade, df_decade
+
     
 
 ## QUALE DECENNIO HA DATO I FILM MIGLIORI MEDIAMENTE E IN ASSOLUTO ##
