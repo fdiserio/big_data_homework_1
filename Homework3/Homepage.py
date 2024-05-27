@@ -168,13 +168,20 @@ def common_films(_collection_union):
             "$replaceRoot": {"newRoot": "$risultato_completo"}
         },
         {
-            "$group": {"_id": {"title": "$_id.title", "year": "$_id.year"}, "count": {"$sum": 1}}
+            "$group": {
+                "_id": {"title": "$_id.title", "year": "$_id.year"}, 
+                "count": {"$sum": 1}
+            }
         },
         {
             "$match": {"count": {"$gt": 1}}
         },
         {
-            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}
+            "$project": {
+                "_id": 0, 
+                "title": "$_id.title", 
+                "year": "$_id.year"
+            }
         }
     ]
 
@@ -199,13 +206,21 @@ if lista_select[0]:
 def all_films(_collection_union):
     pipeline = [
         {
-            "$project": {"_id": 0, "title": 1, "year": 1}
+            "$project": {
+                "_id": 0, 
+                "title": 1, 
+                "year": 1
+            }
         },
         {
             "$group": {"_id": {"title": "$title", "year": "$year"}}
         },
         {
-            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year"}
+            "$project": {
+                "_id": 0, 
+                "title": "$_id.title", 
+                "year": "$_id.year"
+            }
         }
     ]
 
@@ -235,7 +250,10 @@ left_query2, right_query2 = st.columns(2)
 def best_film(_collection_union):
     pipeline = [
         {
-            "$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"}, 
+                "rating": {"$avg": "$rating"}
+            }
         },
         {
             "$addFields": {"rating": {"$round": ["$rating", 1]}}
@@ -247,7 +265,12 @@ def best_film(_collection_union):
             "$limit": 10
         },
         {
-            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}
+            "$project": {
+                "_id": 0, 
+                "title": "$_id.title", 
+                "year": "$_id.year", 
+                "rating": "$rating"
+            }
         }
     ]
 
@@ -273,7 +296,10 @@ if lista_select[2]:
 def flop_film(_collection_union):
     pipeline = [
         {
-            "$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"}, 
+                "rating": {"$avg": "$rating"}
+            }
         },
         {
             "$addFields": {"rating": {"$round": ["$rating", 1]}}
@@ -285,7 +311,12 @@ def flop_film(_collection_union):
             "$limit": 10
         },
         {
-            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "rating": "$rating"}
+            "$project": {
+                "_id": 0, 
+                "title": "$_id.title", 
+                "year": "$_id.year", 
+                "rating": "$rating"
+                }
         }
     ]
 
@@ -380,7 +411,12 @@ def most_reviewed_film(_collection_genre):
             "$limit": 1
         },
         {
-            "$project": {"_id": 0, "title": "$_id.title", "year": "$_id.year", "num_reviews": "$num_reviews"}
+            "$project": {
+                "_id": 0, 
+                "title": "$_id.title", 
+                "year": "$_id.year", 
+                "num_reviews": "$num_reviews"
+                }
         }
     ]
     
@@ -404,7 +440,12 @@ left_line4, right_line4 = st.columns(2)
 def film_x_genre(_collection_union):
     pipeline = [
         {
-            "$project": {"title": 1, "year": 1, "genre": {"$split": ["$genre", ","]}, "rating": 1}
+            "$project": {
+                "title": 1, 
+                "year": 1, 
+                "genre": {"$split": ["$genre", ","]}, 
+                "rating": 1
+                }
         },
         {
             "$unwind": "$genre"
@@ -413,10 +454,17 @@ def film_x_genre(_collection_union):
             "$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}}
         },
         {
-            "$group": {"_id": "$_id.genre", "count": {"$count": {}}}
+            "$group": {
+                "_id": "$_id.genre", 
+                "count": {"$count": {}}
+                }
         },
         {
-            "$project": {"_id": 0, "genre": "$_id", "count": "$count"}
+            "$project": {
+                "_id": 0, 
+                "genre": "$_id", 
+                "count": "$count"
+                }
         }
     ]
 
@@ -439,16 +487,27 @@ if lista_select[6]:
 def mean_genre(_collection_union):
     pipeline = [
         {
-            "$project": {"title": 1, "year": 1, "genre": {"$split": ["$genre", ","]}, "rating": 1}
+            "$project": {
+                "title": 1, 
+                "year": 1, 
+                "genre": {"$split": ["$genre", ","]}, 
+                "rating": 1
+                }
         },
         {
             "$unwind": "$genre"
         },
         {
-            "$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}, "rating": {"$avg": "$rating"}}
+            "$group": {
+                "_id": {"title": "$title", "year": "$year", "genre": "$genre"}, 
+                "rating": {"$avg": "$rating"}
+                }
         },
         {
-            "$group": {"_id": "$_id.genre", "rating": {"$avg": "$rating"}}
+            "$group": {
+                "_id": "$_id.genre", 
+                "rating": {"$avg": "$rating"}
+                }
         },
         {
             "$addFields": {"rating": {"$round": ["$rating", 1]}}
@@ -457,7 +516,8 @@ def mean_genre(_collection_union):
             "$project": {
                 "_id": 0,
                 "genre": "$_id",
-                "rating": "$rating"}
+                "rating": "$rating"
+                }
         }
     ]
 
@@ -508,16 +568,27 @@ if lista_select[8]:
 def mean_time_genre(_collection_genre):
     pipeline = [
         {
-            "$project": {"title": 1, "year": 1, "genre": {"$split": ["$genre", ","]}, "run_length": 1}
+            "$project": {
+                "title": 1, 
+                "year": 1, 
+                "genre": {"$split": ["$genre", ","]}, 
+                "run_length": 1
+            }
         },
         {
             "$unwind": "$genre"
         },
         {
-            "$group": {"_id": {"title": "$title", "year": "$year", "genre": "$genre"}, "run_length": {"$avg": "$run_length"}}
+            "$group": {
+                "_id": {"title": "$title", "year": "$year", "genre": "$genre"}, 
+                "run_length": {"$avg": "$run_length"}
+            }
         },
         {
-            "$group": {"_id": "$_id.genre", "run_length": {"$avg": "$run_length"}}
+            "$group": {
+                "_id": "$_id.genre", 
+                "run_length": {"$avg": "$run_length"}
+                }
         },
         {
             "$addFields": {"run_length": {"$round": ["$run_length", 1]}}
@@ -526,7 +597,11 @@ def mean_time_genre(_collection_genre):
             "$sort": {"run_length": -1}
         },
         {
-            "$project": {"_id": 0, "genre": "$_id", "run_length": "$run_length"}
+            "$project": {
+                "_id": 0, 
+                "genre": "$_id", 
+                "run_length": "$run_length"
+            }
         }
     ]
 
@@ -569,7 +644,10 @@ def rating_ponderato(_collection_union):
             }
         },
         {
-            "$sort": {"weighted_rating": -1, "rating": -1}
+            "$sort": {
+                "weighted_rating": -1, 
+                "rating": -1
+            }
         },
         {
             "$limit": 10
@@ -608,11 +686,11 @@ if lista_select[10]:
             Il rating ponderato è una metrica che tiene conto sia del rating di un film che del numero di voti ricevuti.
             La formula usata è la seguente:
         
-            `weighted_rating = rating * log10(voters)`
+            `weighted_rating = rating * log10(votes)`
         
             Dove:
             - `rating` è il rating del film
-            - `voters` è il numero di voti ricevuti
+            - `votes` è il numero di voti ricevuti
             - `log10` è il logaritmo in base 10
             """)    
 
@@ -622,7 +700,10 @@ if lista_select[10]:
 def top_decennio(_collection_union):
     pipeline = [
         {
-            "$group": {"_id": {"title": "$title", "year": "$year"}, "rating": {"$avg": "$rating"}}
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"}, 
+                "rating": {"$avg": "$rating"}
+            }
         },
         {
             "$addFields": {"rating": {"$round": ["$rating", 1]}}
@@ -631,7 +712,8 @@ def top_decennio(_collection_union):
             "$project": {
                 "_id": 0,
                 "title": "$_id.title",
-                "year": "$_id.year"
+                "year": "$_id.year",
+                "rating": "$rating"
             }
         },
         {
@@ -640,12 +722,8 @@ def top_decennio(_collection_union):
         {
             "$group": {
                 "_id": "$decade",
-                "films": {"$push": {"title": "$title", "year": "$year", "rating": "$rating"}}
+                "films": {"$push": {"title": "$title", "year": "$year", "rating": "$rating", "decade": "$decade"}}
             }
-        },
-        
-        {
-            "$unwind": "$films"
         },
         {
             "$addFields": {"films": {"$slice": [{"$sortArray": {"input": "$films", "sortBy": { "rating": -1}}}, 5]}}
@@ -657,10 +735,16 @@ def top_decennio(_collection_union):
             "$replaceRoot": {"newRoot": "$films"}
         },
         {
+            "$sort": {
+                "decade": 1,
+                "rating": -1
+            }
+        },
+        {
             "$project":{
-                "title": "$_newRoot.title",
-                "year": "$_newRoot.year",
-                "rating": "$_newRoot.rating"
+                "title": "$title",
+                "year": "$year",
+                "rating": "$rating"
             }
         }
     ]
@@ -676,32 +760,98 @@ if lista_select[11]:
             "year": st.column_config.NumberColumn(format="%d")
         })
     
-  
-
-''' 
-df_decade = df_all_movies_voted.withColumn("decade", (floor(col("year") / 10) * 10).cast("int"))
-    k = 5
-    window_spec = Window.partitionBy("decade").orderBy(col("rating").desc())
-    df_top_decade = df_decade[['title','year','rating','decade']].withColumn("row_number", row_number().over(window_spec))
-    df_top_decade = df_top_decade.filter(col("row_number") <= k).drop("row_number").drop("decade")
-    return df_top_decade, df_decade
-
-    
 
 ## QUALE DECENNIO HA DATO I FILM MIGLIORI MEDIAMENTE E IN ASSOLUTO ##
 @st.cache_resource
-def top_10_decennio(_df_decade):
-    df_10_mean = df_decade.groupBy('decade').avg('rating')
-    df_10_mean = df_10_mean.withColumn('rating', round(col('avg(rating)'), 1)).select('decade', 'rating')
-    df_10_mean = df_10_mean.orderBy(desc('rating'))
+def top_10_decennio(_collection_union):
+    pipeline_max = [
+        {
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"}, 
+                "rating": {"$avg": "$rating"}
+            }
+        },
+        {
+            "$addFields": {"rating": {"$round": ["$rating", 1]}}
+        },
+        {   
+            "$project": {
+                "_id": 0,
+                "title": "$_id.title",
+                "year": "$_id.year",
+                "rating": "$rating"
+            }
+        },
+        {
+            "$addFields": {"decade": {"$multiply": [{"$floor": {"$divide": ["$year", 10]}}, 10]}}
+        },
+        {
+            "$group": {
+                "_id": "$decade",
+                "rating": {"$max": "$rating"}
+            }
+        },
+        {
+            "$sort": {
+                "_id": 1
+            }
+        },
+        {
+            "$project":{
+                "_id": 0,
+                "decade": "$_id",
+                "rating": "$rating"
+            }
+        }
+    ]
 
-    df_10_max = df_decade.groupBy('decade').max('rating')
-    df_10_max = df_10_max.withColumn('rating', round(col('max(rating)'), 1)).select('decade', 'rating')
-    df_10_max = df_10_max.orderBy(desc('rating'))
-    
-    return df_10_max, df_10_mean
+    pipeline_mean = [
+        {
+            "$group": {
+                "_id": {"title": "$title", "year": "$year"}, 
+                "rating": {"$avg": "$rating"}
+            }
+        },
+        {
+            "$addFields": {"rating": {"$round": ["$rating", 1]}}
+        },
+        {   
+            "$project": {
+                "_id": 0,
+                "title": "$_id.title",
+                "year": "$_id.year",
+                "rating": "$rating"
+            }
+        },
+        {
+            "$addFields": {"decade": {"$multiply": [{"$floor": {"$divide": ["$year", 10]}}, 10]}}
+        },
+        {
+            "$group": {
+                "_id": "$decade",
+                "rating": {"$avg": "$rating"}
+            }
+        },
+        {
+            "$sort": {
+                "_id": 1
+            }
+        },
+        {
+            "$project":{
+                "_id": 0,
+                "decade": "$_id",
+                "rating": {"$round": ["$rating", 1]}
+            }
+        }
+    ]
 
-df_10_max, df_10_mean = top_10_decennio(df_decade)
+    risultato_finale_max = list(collection_union.aggregate(pipeline_max))
+    risultato_finale_mean = list(collection_union.aggregate(pipeline_mean))
+
+    return risultato_finale_max, risultato_finale_mean 
+
+df_10_max, df_10_mean = top_10_decennio(collection_union)
 
 left_line7, right_line7 = st.columns(2)
 
@@ -720,21 +870,41 @@ if lista_select[13]:
 
 left_line8, right_line8 = st.columns(2)
 
+   
 ## ATTORI CHE HANNO FATTO PIU' FILM ##
 @st.cache_resource
-def actors(_df_imdb_movies):
+def actors(_collection_union):
+    pipeline = [
+        {
+            "$match": {"stars": {"$ne": None}}
+        },
+        {
+            "$project": {"stars": {"$split": ["$stars", ","]}}
+        },
+        {
+            "$unwind": "$stars"
+        },
+        {
+            "$group": {"_id": "$stars", "num_movies": {"$count": {}}}
+        },
+        {
+            "$sort": {"num_movies": -1}
+        },
+        {
+            "$limit": 10
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "stars": "$_id",
+                "num_movies": "$num_movies"}
+        }
+    ]
 
-    df_imdb_exploded_actors = df_imdb_movies.withColumn("actor", explode("stars"))
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-    df_actors = df_imdb_exploded_actors.groupBy("actor").agg(count("*").alias("movies_number"))
-
-    df_actors = df_actors.orderBy(desc("movies_number"))
-    
-    df_stars = df_actors.limit(10)
-
-    return df_stars, df_actors, df_imdb_exploded_actors
-
-df_stars, df_actors, df_imdb_exploded_actors = actors(df_imdb_movies)
+df_stars = actors(collection_union)
 
 if lista_select[14]:
     left_line8.header("$\\bold{Stars}$")
@@ -745,23 +915,78 @@ if lista_select[14]:
 
 ## ATTORI PIU' PRESENTI CHE HANNO FATTO I FILM PIU' APPREZZATI ##
 @st.cache_resource
-def star_x_film(_top_10, _df_imdb_exploded_actors, _df_actors):
+def star_x_film(_collection_union):
+    pipeline = [
+        {
+            "$match": {"stars": {"$ne": None}}
+        },
+        {
+            "$project": {
+                "title": "$title", 
+                "year": "$year", 
+                "stars": {"$split": ["$stars", ","]}, 
+                "rating": "$rating"
+            }
+        },
+        {
+            "$facet": {
+                # Conteggio dei film per ogni attore
+                "parte_1": [
+                    {"$unwind": "$stars"},
+                    {"$group": {"_id": "$stars", "num_movies": {"$sum": 1}}}
+                ],
+                # Prende la top 10 dei film
+                "parte_2": [
+                    {"$sort": {"rating": -1}},
+                    {"$limit": 10},
+                    {"$unwind": "$stars"}
+                ]
+            }
+        },
+        {
+            "$project": {
+                "parte_1": 1,
+                "parte_2": 1
+            }
+        },
+        {
+            "$unwind": "$parte_1"
+        },
+        {
+            "$unwind": "$parte_2"
+        },
+        {
+            "$match": {"$expr": {"$eq": ["$parte_1._id", "$parte_2.stars"]}}
+        },
+        {
+            "$group": {
+                "_id": "$parte_2.stars",
+                "title": {"$first": "$parte_2.title"},
+                "rating": {"$first": "$parte_2.rating"},
+                "num_movies": {"$first": "$parte_1.num_movies"}
+            }
+        },
+        {
+            "$sort": {"num_movies": -1}
+        },
+        {
+            "$limit": 10
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "title": "$title",
+                "stars": "$_id",
+                "rating": "$rating",
+                "num_movies": "$num_movies"
+            }
+        }
+    ]
 
-    df_most_appreciated = top_10.join(df_imdb_exploded_actors, (top_10["title"]==df_imdb_exploded_actors["title"])
-                                    & (top_10["year"]==df_imdb_exploded_actors["year"]))\
-                                    .select(top_10["title"], top_10["year"], top_10["rating"],
-                                            df_imdb_exploded_actors["actor"])
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-    df_most_appreciated = df_most_appreciated.withColumnRenamed("actor","top_actor")
-    df_most_appreciated = df_most_appreciated.join(df_actors, df_most_appreciated["top_actor"]==df_actors["actor"])\
-                                            .select(df_most_appreciated["title"], df_actors["actor"],
-                                                    df_most_appreciated["rating"], df_actors["movies_number"])
-
-    df_film_stars = df_most_appreciated.orderBy(desc("movies_number")).limit(10)
-
-    return df_film_stars
-
-df_stars_film = star_x_film(top_10, df_imdb_exploded_actors, df_actors)
+df_stars_film = star_x_film(collection_union)
 
 if lista_select[15]:
     right_line8.header("$\\bold{Stars}$ $\\bold{Most}$ $\\bold{Film}$")
@@ -770,17 +995,49 @@ if lista_select[15]:
 
 ## ATTORI E REGISTI CON PIU' COLLABORAZIONI ##
 @st.cache_resource
-def actor_director(_df_imdb_movies):
-   
-    df_imdb_directors = df_imdb_movies.withColumn("director", col("director")[0])
-    df_directors_actors = df_imdb_directors.withColumn("actor", explode("stars"))
-    df_couple = df_directors_actors.groupBy("director","actor").agg(count("*").alias("movies_number"))
-    df_couple = df_couple.filter(col("actor")!=col("director"))
-    df_couple = df_couple.orderBy(desc("movies_number")).limit(10)
- 
-    return df_couple
+def actor_director(_collection_union):
+    pipeline = [
+        {
+            "$match": {"stars": {"$ne": None}, "director": {"$ne": None}}
+        },
+        {
+            "$project": {
+                "actor": {"$split": ["$stars", ","]},
+                "director": {"$arrayElemAt": [{"$split": ["$director", ","]}, 0]}
+            }
+        },
+        {
+            "$unwind": "$actor"
+        },
+        {
+            "$match": {"$expr": {"$ne": ["$actor", "$director"]}}
+        },
+        {
+            "$group": {
+                "_id": {"director": "$director", "actor": "$actor"},
+                "movies_number": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {"movies_number": -1}
+        },
+        {
+            "$limit": 10
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "director": "$_id.director",
+                "actor": "$_id.actor",
+                "movies_number": "$movies_number"
+            }
+        }
+    ]
+    
+    risultato_finale = list(collection_union.aggregate(pipeline))
+    return risultato_finale
 
-df_couple = actor_director(df_imdb_movies)
+df_couple = actor_director(collection_union)
 
 if lista_select[16]:
     st.header("$\\bold{Actor}$ $\\bold{x}$ $\\bold{Director}$")
@@ -788,6 +1045,10 @@ if lista_select[16]:
 
 
 left_line9, right_line9 = st.columns(2)
+
+
+
+''' 
 
 ## COMMENTI TOP 10 ##
 # Funzione per recuperare la recensione da un URL
