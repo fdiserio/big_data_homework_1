@@ -1112,6 +1112,7 @@ def top_tweet(_collection_reviews):
         },
         {
             "$project": {
+                "_id": 0,
                 "title": "$_id.title",
                 "year": "$_id.year",
                 "rating": "$_id.rating",
@@ -1128,6 +1129,9 @@ def top_tweet(_collection_reviews):
                     ]
                 }
             }
+        },
+        {
+            "$sort": {"rating": -1}  
         }
     ]
 
@@ -1142,134 +1146,95 @@ if lista_select[17]:
             "year": st.column_config.NumberColumn(format="%d")
         })
 
-''' 
-
-## COMMENTI TOP 10 ##
-# Funzione per recuperare la recensione da un URL
-@st.cache_data
-def get_review_from_url(url):
-    reviews = []
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            comments = soup.find_all('div', class_='text show-more__control')
-            for comment in comments:
-                reviews.append(comment.text.strip())
-            text = ' '.join(reviews)
-            text = text.replace(",", "") \
-                        .replace(";", "") \
-                        .replace(":", "") \
-                        .replace("(", "") \
-                        .replace(")", "") \
-                        .replace("!", "") \
-                        .replace("?", "") \
-                        .replace(".", "")
-            text = text.lower()
-            text = text.split()
-            return text
-        else:
-            return "else"
-    except:
-        return "eccezione"
-
-# Definisce le stop words
-englishStopWords = ["and", "to", "the", "into", "on", "of", "by", "or", "in", "a", "with", "that", "she", "it", "i",
-                    "you", "he", "we", "they", "her", "his", "its", "this", "that", "at", "as", "for", "not", "so",
-                    "do", "is", "was", "are", "have", "has", "an", "my", "-", "but", "be", "film", "movie", "one",
-                "from", "it's", "me", "where"]
-
-@st.cache_resource
-def top_tweet(_df_genre_movies, _spark):
-    
-    df_tweet = df_genre_movies.groupBy('name', 'year', 'rating', 'review_url').agg(count('*'))\
-                                .select('name', 'year', 'rating', 'review_url')
-    
-    df_tweet_top_10 = df_tweet.orderBy(desc('rating')).limit(10)
-
-    top_tweets = df_tweet_top_10.select('name', 'year', 'rating', 'review_url').collect()
-
-    df_top_review = None
-
-    for tweet in top_tweets:
-        url = tweet['review_url']
-        text = get_review_from_url(url)
-        text = [word for word in text if word not in englishStopWords]
-        top_word_dic = {}
-        top_word_list = []
-
-        for word in text:
-            if word in top_word_list:
-                top_word_dic[word] += 1
-            else:
-                top_word_dic[word] = 1
-                top_word_list.append(word)
-
-        # Ordinare il dizionario filtrato per valori in ordine decrescente
-        top_word_dic_ordinato = dict(sorted(top_word_dic.items(), key=lambda x: x[1], reverse=True))
-        top_five_words = dict(list(top_word_dic_ordinato.items())[:5])
-
-        # Crea un DataFrame Panda 
-        df_temp = pd.DataFrame([(tweet['name'], tweet['year'], tweet['rating'], top_five_words)], 
-                               columns=['name', 'year', 'rating', "top_words"])
-
-        if df_top_review is None:
-            df_top_review = df_temp
-        else:
-            df_top_review = pd.concat([df_top_review, df_temp], ignore_index=True)
-
-    return df_top_review, df_tweet
-
-
-
 
 ## COMMENTI FLOP 10 ## 
 @st.cache_resource
-def flop_tweet(_df_tweet, _spark):
-        
-    df_tweet_flop_10 = df_tweet.orderBy(('rating')).limit(10)
+def flop_tweet(_collection_reviews):
+    pipeline = [
+        # Step 1: Filtrare i flop 10 film e aggiungere le recensioni
+        {
+            "$sort": {"rating": 1}
+        },
+        {
+            "$limit": 11
+        },
+        # Step 2: Esplodere le recensioni in singole parole
+        {
+            "$project": {
+                "title": 1,
+                "year": 1,
+                "rating": 1,
+                "words": {"$split": ["$review_text", " "]}
+            }
+        },
+        {
+            "$unwind": "$words"
+        },
+        # Step 3: Rimuovere le stop words
+        {
+            "$match": {
+                "words": {
+                    "$nin": ['and', 'to', 'the', 'into', 'on', 'of', 'by', 'or', 'in', 'a',
+                            'with', 'that', 'she', 'it', 'i', 'you', 'he', 'we', 'they',
+                            'her', 'his', 'its', 'this', 'that', 'at', 'as', 'for', 'not',
+                            'so', 'do', 'is', 'was', 'are', 'have', 'has', 'an', 'my', '-',
+                            'but', 'be', 'film', 'movie', 'one', 'from', 'it\'s', 'me',
+                            'where', '']
+                }
+            }
+        },
+        # Step 4: Contare le parole
+        {
+            "$group": {
+                "_id": {"title": "$title", "year": "$year", "rating": "$rating", "word": "$words"},
+                "count": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {"count": -1}
+        },
+        # Step 5: Raggruppare per film e ottenere le top 5 parole
+        {
+            "$group": {
+                "_id": {"title": "$_id.title", "year": "$_id.year", "rating": "$_id.rating"},
+                "words": {"$push": {"word": "$_id.word", "count": "$count"}}
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "title": "$_id.title",
+                "year": "$_id.year",
+                "rating": "$_id.rating",
+                "flop_word_count": {
+                    "$slice": [
+                        {
+                            "$map": {
+                                "input": {"$slice": ["$words", 5]},
+                                "as": "word",
+                                "in": {"$concat": ["$$word.word", " = ", {"$toString": "$$word.count"}]}
+                            }
+                        },
+                        5
+                    ]
+                }
+            }
+        },
+        {
+            "$sort": {"rating": 1}  
+        }
+    ]
 
-    flop_tweets = df_tweet_flop_10.select('name', 'year', 'rating', 'review_url').collect()
+    risultato_finale = list(collection_reviews.aggregate(pipeline))
+    return risultato_finale
+    
 
-    df_flop_review = None
-
-    for tweet in flop_tweets:
-        url = tweet['review_url']
-        text = get_review_from_url(url)
-        text = [word for word in text if word not in englishStopWords]
-        flop_word_dic = {}
-        flop_word_list = []
-
-        for word in text:
-            if word in flop_word_list:
-                flop_word_dic[word] += 1
-            else:
-                flop_word_dic[word] = 1
-                flop_word_list.append(word)
-
-        # Ordinare il dizionario filtrato per valori in ordine decrescente
-        flop_word_dic_ordinato = dict(sorted(flop_word_dic.items(), key=lambda x: x[1], reverse=True))
-        flop_five_words = dict(list(flop_word_dic_ordinato.items())[:5])
-
-        # Crea un DataFrame Panda 
-        df_temp = pd.DataFrame([(tweet['name'], tweet['year'], tweet['rating'], flop_five_words)], 
-                               columns=['name', 'year', 'rating', "flop_words"])
-
-        if df_flop_review is None:
-            df_flop_review = df_temp
-        else:
-            df_flop_review = pd.concat([df_flop_review, df_temp], ignore_index=True)
-
-    return df_flop_review
-
-df_flop_review = flop_tweet(df_tweet, spark)
+df_flop_review = flop_tweet(collection_reviews)
 
 if lista_select[18]:
     right_line9.header("$\\bold{Film}$ $\\bold{Flop}$ $\\bold{Tweet}$")
     right_line9.dataframe(df_flop_review, hide_index=True, column_config={
             "year": st.column_config.NumberColumn(format="%d")
         })
-
-'''
-
-
+    
+    

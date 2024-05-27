@@ -202,7 +202,7 @@ print(f"Ci sono {count_union} film nella collection unione")
 
 ### CREAZIONE COLLECTION REVIEWS ###
 top_10_films = list(collection_union.find({"review_url": {"$ne": None}}).sort("rating", -1).limit(10))
-flop_10_films = list(collection_union.find({"review_url": {"$ne": None}}).sort("rating", 1).limit(10))
+flop_10_films = list(collection_union.find({"review_url": {"$ne": None}}).sort("rating", 1).limit(11))
 
 # Funzione per recuperare la recensione da un URL
 @st.cache_data
