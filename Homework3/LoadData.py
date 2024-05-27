@@ -25,6 +25,7 @@ db = client['Homework3']
 collection_imdb = db['imdb']        # Dataset imdb
 collection_genre = db['genre']      # Dataset genre
 collection_union = db["Data_NoSQL"] # Unione dei due Dataset
+collection_reviews = db['collection_reviews']  # Dataset delle recensioni
 
 
 ### PATH ###
@@ -199,7 +200,55 @@ count_union = list(collection_union.aggregate([{'$count': 'count'}]))[0]['count'
 print(f"Ci sono {count_union} film nella collection unione")
 
 
+### CREAZIONE COLLECTION REVIEWS ###
+top_10_films = list(collection_union.find({"review_url": {"$ne": None}}).sort("rating", -1).limit(10))
+flop_10_films = list(collection_union.find({"review_url": {"$ne": None}}).sort("rating", 1).limit(10))
 
+# Funzione per recuperare la recensione da un URL
+@st.cache_data
+def get_review_from_url(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            comments = soup.find_all('div', class_='text show-more__control')
+            reviews = [comment.text.strip() for comment in comments]
+            text = ' '.join(reviews)
+            text = text.replace(",", "").replace(";", "").replace(":", "")\
+                       .replace("(", "").replace(")", "").replace("!", "")\
+                       .replace("?", "").replace(".", "")
+            text = text.lower()
+            return text
+        else:
+            return "Failed to fetch HTML from URL"
+    except Exception as e:
+        print(f"Exception occurred: {str(e)}")
+        return "Exception occurred"
+
+for film in top_10_films:
+    review_text = get_review_from_url(film['review_url'])
+    film_data = {
+        "title": film["title"],
+        "year": film["year"],
+        "rating": film["rating"],
+        "review_text": review_text
+    }
+    collection_reviews.insert_one(film_data)
+    
+for film in flop_10_films:
+    review_text = get_review_from_url(film['review_url'])
+    film_data = {
+        "title": film["title"],
+        "year": film["year"],
+        "rating": film["rating"],
+        "review_text": review_text
+    }
+    collection_reviews.insert_one(film_data)
+
+# Stampa stringa di fine creazione e conteggio
+print("Creata collection delle recensioni")
+count_reviews = list(collection_reviews.aggregate([{'$count': 'count'}]))[0]['count']
+print(f"Ci sono {count_reviews} film nella collection reviews")
 
 
 '''

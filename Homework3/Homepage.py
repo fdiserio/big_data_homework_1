@@ -7,7 +7,7 @@ from libraries import *
 # CONNESSIONE AL CLUSTER
 uri_D = "mongodb+srv://Homework3:Homework3@clusterhomework3.1gev4ck.mongodb.net/?retryWrites=true&w=majority&appName=ClusterHomework3"
 uri_F = "mongodb+srv://Homework3:Homework3@homework3.fc8huhi.mongodb.net/?retryWrites=true&w=majority&appName=Homework3"
-uri = uri_D
+uri = uri_F
 
 # Create a new client and connect to the server
 client = MongoClient(uri)
@@ -35,16 +35,17 @@ db = client['Homework3']
 collection_imdb = db['imdb']        # Dataset imdb
 collection_genre = db['genre']      # Dataset genre
 collection_union = db["Data_NoSQL"] # Unione dei due Dataset
+collection_reviews = db['collection_reviews']  # Dataset delle recensioni
 
 # Togliamo la colonna id dalla visualizzazione
 collection_genre_list = list(collection_genre.aggregate([{"$project": {"_id": 0}}]))
-df_genre_movies = pd.DataFrame(collection_genre_list)
+#df_genre_movies = pd.DataFrame(collection_genre_list)
 
 collection_imdb_list = list(collection_imdb.aggregate([
         {"$project": {"_id": 0}}
 #        {"$match": {"year": {"$ne": None}}}
     ]))
-df_imdb_movies = pd.DataFrame(collection_imdb_list)
+#df_imdb_movies = pd.DataFrame(collection_imdb_list)
 
 
 ## VISUALIZE DATASET ##
@@ -54,7 +55,7 @@ right_check = right_column.checkbox("GENRE Dataset")
 
 # Visualizza il dataset imdb
 if left_check:
-    left_column.dataframe(df_imdb_movies, hide_index=True, column_config = {
+    left_column.dataframe(collection_imdb_list, hide_index=True, column_config = {
         "year": st.column_config.NumberColumn(format="%d"),
         "votes": st.column_config.NumberColumn(format="%d"),
         "rating": st.column_config.ProgressColumn(
@@ -67,7 +68,7 @@ if left_check:
 
 # Visualizza il dataset genre
 if right_check:
-    right_column.dataframe(df_genre_movies, hide_index=True, column_config = {
+    right_column.dataframe(collection_genre_list, hide_index=True, column_config = {
         "year": st.column_config.NumberColumn(format="%d"),
         "num_raters": st.column_config.NumberColumn(format="%d"),
         "num_reviews": st.column_config.NumberColumn(format="%d"),
@@ -191,12 +192,12 @@ def common_films(_collection_union):
 # Esegui l'operazione per ottenere i film comuni tra le due collection
 common_movies = common_films(collection_union)
 
-df_common_movies = pd.DataFrame(common_movies)  # Trasformiamo in DF Pandas
-print(f"Common movies: {len(df_common_movies)}")
+#df_common_movies = pd.DataFrame(common_movies)  # Trasformiamo in DF Pandas
+print(f"Common movies: {len(common_movies)}")
 
 if lista_select[0]:
     left_query1.header("$\\bold{Common}$ $\\bold{Film}$")
-    left_query1.dataframe(df_common_movies, hide_index=True, column_config={
+    left_query1.dataframe(common_movies, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
         })
 
@@ -232,12 +233,12 @@ def all_films(_collection_union):
 all_movies = all_films(collection_union)
  
 # Converti la lista di documenti in un DataFrame Pandas
-df_all_movies = pd.DataFrame(all_movies)
-print(f"All movies: {len(df_all_movies)}")
+#df_all_movies = pd.DataFrame(all_movies)
+print(f"All movies: {len(all_movies)}")
 
 if lista_select[1]:
     right_query1.header("$\\bold{All}$ $\\bold{Film}$")
-    right_query1.dataframe(df_all_movies, hide_index=True, column_config={
+    right_query1.dataframe(all_movies, hide_index=True, column_config={
         "year": st.column_config.NumberColumn(format="%d"),
         })
 
@@ -393,8 +394,11 @@ if lista_select[4]:
 
 ## FILM RECENSITO DA PIU' UTENTI ##
 @st.cache_resource
-def most_reviewed_film(_collection_genre):
+def most_reviewed_film(_collection_union):
     pipeline = [
+        {
+            "$match": {"num_reviews": {"$ne": None}}
+        },
         # Raggruppare per title e year
         {
             "$group": {
@@ -420,10 +424,10 @@ def most_reviewed_film(_collection_genre):
         }
     ]
     
-    risultato_finale = list(collection_genre.aggregate(pipeline))
+    risultato_finale = list(collection_union.aggregate(pipeline))
     return risultato_finale
 
-most_reviewed = most_reviewed_film(collection_genre)
+most_reviewed = most_reviewed_film(collection_union)
 
 if lista_select[5]:
     right_line3.header("$\\bold{Most}$ $\\bold{Reviewed}$")
@@ -542,8 +546,11 @@ left_line5, right_line5 = st.columns(2)
 
 ## DURATA MEDIA DI UN FILM ##
 @st.cache_resource
-def mean_time(_collection_genre):
+def mean_time(_collection_union):
     pipeline = [
+        {
+            "$match": {"run_length": {"$ne": None}}
+        },
         {
             "$group": {"_id": None, "run_length": {"$avg": "$run_length"}}
         },
@@ -552,10 +559,10 @@ def mean_time(_collection_genre):
         }
     ]
 
-    risultato_finale = list(collection_genre.aggregate(pipeline))
+    risultato_finale = list(collection_union.aggregate(pipeline))
     return risultato_finale
 
-df_time = mean_time(collection_genre)
+df_time = mean_time(collection_union)
 
 if lista_select[8]:
     left_line5.header("$\\bold{Mean}$ $\\bold{Time}$ \
@@ -565,8 +572,11 @@ if lista_select[8]:
     
 ## DURATA MEDIA PER GENERE ##
 @st.cache_resource
-def mean_time_genre(_collection_genre):
+def mean_time_genre(_collection_union):
     pipeline = [
+        {
+            "$match": {"run_length": {"$ne": None}}
+        },
         {
             "$project": {
                 "title": 1, 
@@ -605,10 +615,10 @@ def mean_time_genre(_collection_genre):
         }
     ]
 
-    risultato_finale = list(collection_genre.aggregate(pipeline))
+    risultato_finale = list(collection_union.aggregate(pipeline))
     return risultato_finale
 
-df_time_genre = mean_time_genre(collection_genre)
+df_time_genre = mean_time_genre(collection_union)
 
 if lista_select[9]:
     right_line5.header("$\\bold{Mean}$ $\\bold{Time}$ \
@@ -1047,6 +1057,90 @@ if lista_select[16]:
 left_line9, right_line9 = st.columns(2)
 
 
+## COMMENTI TOP 10 ##
+@st.cache_resource
+def top_tweet(_collection_reviews):
+    pipeline = [
+        # Step 1: Filtrare i top 10 film e aggiungere le recensioni
+        {
+            "$sort": {"rating": -1}
+        },
+        {
+            "$limit": 10
+        },
+        # Step 2: Esplodere le recensioni in singole parole
+        {
+            "$project": {
+                "title": 1,
+                "year": 1,
+                "rating": 1,
+                "words": {"$split": ["$review_text", " "]}
+            }
+        },
+        {
+            "$unwind": "$words"
+        },
+        # Step 3: Rimuovere le stop words
+        {
+            "$match": {
+                "words": {
+                    "$nin": ['and', 'to', 'the', 'into', 'on', 'of', 'by', 'or', 'in', 'a',
+                            'with', 'that', 'she', 'it', 'i', 'you', 'he', 'we', 'they',
+                            'her', 'his', 'its', 'this', 'that', 'at', 'as', 'for', 'not',
+                            'so', 'do', 'is', 'was', 'are', 'have', 'has', 'an', 'my', '-',
+                            'but', 'be', 'film', 'movie', 'one', 'from', 'it\'s', 'me',
+                            'where', '']
+                }
+            }
+        },
+        # Step 4: Contare le parole
+        {
+            "$group": {
+                "_id": {"title": "$title", "year": "$year", "rating": "$rating", "word": "$words"},
+                "count": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {"count": -1}
+        },
+        # Step 5: Raggruppare per film e ottenere le top 5 parole
+        {
+            "$group": {
+                "_id": {"title": "$_id.title", "year": "$_id.year", "rating": "$_id.rating"},
+                "words": {"$push": {"word": "$_id.word", "count": "$count"}}
+            }
+        },
+        {
+            "$project": {
+                "title": "$_id.title",
+                "year": "$_id.year",
+                "rating": "$_id.rating",
+                "top_word_count": {
+                    "$slice": [
+                        {
+                            "$map": {
+                                "input": {"$slice": ["$words", 5]},
+                                "as": "word",
+                                "in": {"$concat": ["$$word.word", " = ", {"$toString": "$$word.count"}]}
+                            }
+                        },
+                        5
+                    ]
+                }
+            }
+        }
+    ]
+
+    risultato_finale = list(collection_reviews.aggregate(pipeline))
+    return risultato_finale
+
+df_top_review = top_tweet(collection_reviews)
+
+if lista_select[17]:
+    left_line9.header("$\\bold{Film}$ $\\bold{Top}$ $\\bold{Tweet}$")
+    left_line9.dataframe(df_top_review, hide_index=True, column_config={
+            "year": st.column_config.NumberColumn(format="%d")
+        })
 
 ''' 
 
@@ -1126,13 +1220,7 @@ def top_tweet(_df_genre_movies, _spark):
 
     return df_top_review, df_tweet
 
-df_top_review, df_tweet = top_tweet(df_genre_movies, spark)
 
-if lista_select[17]:
-    left_line9.header("$\\bold{Film}$ $\\bold{Top}$ $\\bold{Tweet}$")
-    left_line9.dataframe(df_top_review, hide_index=True, column_config={
-            "year": st.column_config.NumberColumn(format="%d")
-        })
 
 
 ## COMMENTI FLOP 10 ## 
