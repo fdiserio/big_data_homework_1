@@ -27,7 +27,7 @@ Per l'esecuzione del progetto bisogna effettuare i seguenti passi:
     - venv/Scripts/Activate.ps1
 2. Da terminale (in ambiente virtuale), lanciare il seguente comando per l'installazione delle librerie:
     **pip install -r .\requirements.txt**
-3. Modificare la stringa "uri" all'interno dei file "LoadData.py" e "Homepage.py" per la connessione al proprio cluster su MongoDB
+3. Modificare la stringa "uri" all'interno del file "libraries.py" per la connessione al proprio cluster su MongoDB
 4. Da terminale (in ambiente virtuale), lanciare il seguente comando per creare le collection sul cluster:
     **python .\LoadData.py**
 5. Da terminale (in ambiente virtuale), lanciare il seguente comando per avviare la dashboard streamlit:

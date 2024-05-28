@@ -4,21 +4,6 @@
 ## LIBRARIES IMPORT ##
 from libraries import *
 
-# CONNESSIONE AL CLUSTER
-uri_D = "mongodb+srv://Homework3:Homework3@clusterhomework3.1gev4ck.mongodb.net/?retryWrites=true&w=majority&appName=ClusterHomework3"
-uri_F = "mongodb+srv://Homework3:Homework3@homework3.fc8huhi.mongodb.net/?retryWrites=true&w=majority&appName=Homework3"
-uri = uri_D
-
-# Create a new client and connect to the server
-client = MongoClient(uri)
-
-# Send a ping to confirm a successful connection
-try:
-    client.admin.command('ping')
-    print("Pinged your deployment. You successfully connected to MongoDB!")
-except Exception as e:
-    print(e)
-
 
 ## PAGE CONFIGURATION ##
 st.set_page_config(
@@ -30,6 +15,23 @@ st.set_page_config(
 st.title('🎬📽️:rainbow[CINE-DATA: Dataset Cinematografici]🎞️🎥')
 
 
+# CONNESSIONE AL CLUSTER
+# Create a new client and connect to the server
+@st.cache_resource
+def connect_to_Mongo(uri):
+    client = MongoClient(uri)
+    return client
+
+client = connect_to_Mongo(uri)
+
+# Send a ping to confirm a successful connection
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+except Exception as e:
+    print(e)
+
+
 ### DATASET ###
 db = client['Homework3']
 collection_imdb = db['imdb']        # Dataset imdb
@@ -39,13 +41,7 @@ collection_reviews = db['collection_reviews']  # Dataset delle recensioni
 
 # Togliamo la colonna id dalla visualizzazione
 collection_genre_list = list(collection_genre.aggregate([{"$project": {"_id": 0}}]))
-#df_genre_movies = pd.DataFrame(collection_genre_list)
-
-collection_imdb_list = list(collection_imdb.aggregate([
-        {"$project": {"_id": 0}}
-#        {"$match": {"year": {"$ne": None}}}
-    ]))
-#df_imdb_movies = pd.DataFrame(collection_imdb_list)
+collection_imdb_list = list(collection_imdb.aggregate([{"$project": {"_id": 0}}]))
 
 
 ## VISUALIZE DATASET ##
@@ -93,7 +89,7 @@ with st.sidebar:
 
     left_column_query, right_column_query = st.columns(2)
 
-    # Lista delle fasi
+    # Lista delle query
     queries = [
         "Film Comuni",
         "Tutti i Film",
@@ -191,8 +187,6 @@ def common_films(_collection_union):
  
 # Esegui l'operazione per ottenere i film comuni tra le due collection
 common_movies = common_films(collection_union)
-
-#df_common_movies = pd.DataFrame(common_movies)  # Trasformiamo in DF Pandas
 print(f"Common movies: {len(common_movies)}")
 
 if lista_select[0]:
@@ -226,14 +220,12 @@ def all_films(_collection_union):
     ]
 
     result = list(collection_union.aggregate(pipeline))
- 
     return result
  
 # Esegui la funzione per ottenere tutti i film
 all_movies = all_films(collection_union)
  
 # Converti la lista di documenti in un DataFrame Pandas
-#df_all_movies = pd.DataFrame(all_movies)
 print(f"All movies: {len(all_movies)}")
 
 if lista_select[1]:
@@ -292,7 +284,7 @@ if lista_select[2]:
     })
 
 
-## FILM PEGGIORI ##
+## FLOP 10 ##
 @st.cache_resource
 def flop_film(_collection_union):
     pipeline = [
@@ -353,7 +345,6 @@ def most_voted_film(_collection_union):
                 "votes": {"$max": ["$num_raters", "$votes"]}
             }
         },
-        # Raggruppare per title e year
         {
             "$group": {
                 "_id": {"title": "$title", "year": "$year"},
@@ -368,7 +359,6 @@ def most_voted_film(_collection_union):
         {
             "$limit": 1
         },
-        # Proiettare i risultati finali
         {
             "$project": {
                 "_id": 0,
@@ -399,7 +389,6 @@ def most_reviewed_film(_collection_union):
         {
             "$match": {"num_reviews": {"$ne": None}}
         },
-        # Raggruppare per title e year
         {
             "$group": {
                 "_id": {"title": "$title", "year": "$year"},
