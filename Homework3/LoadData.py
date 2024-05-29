@@ -5,6 +5,8 @@
 from libraries import *
 
 ## CONNESSIONE AL CLUSTER ##
+uri = "mongodb+srv://Homework3:Homework3@homework3.fc8huhi.mongodb.net/?retryWrites=true&w=majority&appName=Homework3"
+
 # Create a new client and connect to the server
 client = MongoClient(uri)
 

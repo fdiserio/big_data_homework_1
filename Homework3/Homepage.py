@@ -4,7 +4,6 @@
 ## LIBRARIES IMPORT ##
 from libraries import *
 
-
 ## PAGE CONFIGURATION ##
 st.set_page_config(
     page_title='Movies',
@@ -16,6 +15,8 @@ st.title('🎬📽️:rainbow[CINE-DATA: Dataset Cinematografici]🎞️🎥')
 
 
 # CONNESSIONE AL CLUSTER
+uri = "mongodb+srv://Homework3:Homework3@homework3.fc8huhi.mongodb.net/?retryWrites=true&w=majority&appName=Homework3"
+
 # Create a new client and connect to the server
 @st.cache_resource
 def connect_to_Mongo(uri):
